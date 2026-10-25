@@ -78,12 +78,6 @@ jobs:
           cp app/build/outputs/apk/debug/*.apk   dist/URLStream-debug.apk
           cp app/build/outputs/apk/release/*.apk dist/URLStream-release.apk
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: URLStream-apk
-          path: dist/*.apk
-          if-no-files-found: error
-
       # Tag push (v1.0) -> release named after the tag.
       - name: Publish GitHub Release (tags)
         if: startsWith(github.ref, 'refs/tags/v')
@@ -102,4 +96,14 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: true
           files: dist/*.apk
+
+      # Optional: GitHub artifact storage can be full, so never fail the build on this.
+      - name: Upload artifact (optional)
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: URLStream-apk
+          path: dist/*.apk
+          retention-days: 1
+          if-no-files-found: error
           
