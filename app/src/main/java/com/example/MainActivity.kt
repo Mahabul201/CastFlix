@@ -12,6 +12,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -69,8 +71,38 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
   @OptIn(ExperimentalMaterial3Api::class)
   override fun onCreate(savedInstanceState: Bundle?) {
+    val crashFile = java.io.File(filesDir, "crash.txt")
+    val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+    Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+      try {
+        crashFile.writeText(android.util.Log.getStackTraceString(throwable))
+      } catch (_: Throwable) {
+      }
+      defaultHandler?.uncaughtException(thread, throwable)
+    }
+
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+
+    if (crashFile.exists()) {
+      val report = try { crashFile.readText() } catch (_: Throwable) { "Unreadable crash report" }
+      setContent {
+        URLStreamTheme {
+          CrashReportScreen(
+            report = report,
+            onCopy = {
+              val cm = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+              cm.setPrimaryClip(android.content.ClipData.newPlainText("crash", report))
+            },
+            onContinue = {
+              crashFile.delete()
+              recreate()
+            }
+          )
+        }
+      }
+      return
+    }
 
     val repository = StreamRepository(this)
     val downloadHelper = DownloadManagerHelper(this)
@@ -285,5 +317,36 @@ fun MainAppContent(
         }
       )
     }
+  }
+}
+
+
+@Composable
+fun CrashReportScreen(report: String, onCopy: () -> Unit, onContinue: () -> Unit) {
+  androidx.compose.foundation.layout.Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .padding(16.dp)
+      .systemBarsPadding()
+  ) {
+    Text(
+      text = "The app crashed last time",
+      fontSize = 20.sp,
+      fontWeight = FontWeight.Bold,
+      color = MaterialTheme.colorScheme.onBackground
+    )
+    androidx.compose.foundation.layout.Row(modifier = Modifier.padding(vertical = 8.dp)) {
+      androidx.compose.material3.Button(onClick = onCopy) { Text("Copy error") }
+      androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(8.dp))
+      androidx.compose.material3.OutlinedButton(onClick = onContinue) { Text("Clear and retry") }
+    }
+    Text(
+      text = report,
+      fontSize = 11.sp,
+      color = MaterialTheme.colorScheme.onBackground,
+      modifier = Modifier
+        .weight(1f)
+        .verticalScroll(androidx.compose.foundation.rememberScrollState())
+    )
   }
 }
