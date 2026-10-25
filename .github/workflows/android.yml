@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     paths-ignore: ["backend/**", "**.md"]
-    tags: ["v*"]
   pull_request:
     paths-ignore: ["backend/**", "**.md"]
   workflow_dispatch:
@@ -69,41 +68,35 @@ jobs:
           fi
           echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
-      - name: Build debug + release APKs
-        run: gradle assembleDebug assembleRelease --stacktrace --no-daemon
+      - name: Build release APK
+        run: gradle assembleRelease --stacktrace --no-daemon
 
-      - name: Rename APKs
+      - name: Rename APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/*.apk   dist/URLStream-debug.apk
-          cp app/build/outputs/apk/release/*.apk dist/URLStream-release.apk
+          cp app/build/outputs/apk/release/*.apk dist/CastFlix.apk
 
-      # Tag push (v1.0) -> release named after the tag.
-      - name: Publish GitHub Release (tags)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.apk
-          generate_release_notes: true
-
-      # Push to main or manual run -> a "Build #N" release with the APK download link.
-      - name: Publish build release (main)
-        if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: URL Stream build ${{ github.run_number }}
-          target_commitish: ${{ github.sha }}
-          prerelease: true
-          files: dist/*.apk
+      # Always keep ONE release called "latest" so this link never changes:
+      # https://github.com/<user>/<repo>/releases/latest/download/CastFlix.apk
+      - name: Publish latest release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --cleanup-tag --yes || true
+          gh release create latest dist/CastFlix.apk \
+            --title "CastFlix (build ${{ github.run_number }})" \
+            --notes "Automatic build #${{ github.run_number }} from commit ${GITHUB_SHA::7}." \
+            --target "$GITHUB_SHA" \
+            --latest
 
       # Optional: GitHub artifact storage can be full, so never fail the build on this.
       - name: Upload artifact (optional)
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: URLStream-apk
-          path: dist/*.apk
+          name: CastFlix-apk
+          path: dist/CastFlix.apk
           retention-days: 1
           if-no-files-found: error
           
