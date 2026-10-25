@@ -29,7 +29,7 @@ class StreamRepository(private val context: Context) {
   private val prefs: SharedPreferences =
     context.getSharedPreferences("url_stream_prefs", Context.MODE_PRIVATE)
 
-  private var apiService = StreamApiService.create(getSettings().backendUrl)
+  private var apiService = StreamApiService.create(loadSettings().backendUrl)
 
   // Local cache of media items
   private val _movies = MutableStateFlow<List<MediaItem>>(SeedData.sampleMovies)
