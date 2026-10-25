@@ -1,0 +1,6 @@
+{
+  "name": "URL Stream",
+  "description": "High performance video streaming app for direct URLs, HLS, MP4, series and movies with offline downloads and player controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

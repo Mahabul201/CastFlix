@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL Stream - Cloud Admin Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0b0d14;
+      --card-bg: #151824;
+      --card-border: #232738;
+      --accent-red: #e50914;
+      --accent-cyan: #00e5ff;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: #111420; border-bottom: 1px solid var(--card-border); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 10px; color: #fff; }
+    .logo span { color: var(--accent-red); }
+    .badge { background: rgba(229, 9, 20, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; flex: 1; width: 100%; }
+
+    /* Login Modal */
+    #login-overlay { position: fixed; inset: 0; background: rgba(11, 13, 20, 0.95); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .login-box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 36px; width: 100%; max-width: 400px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+    .login-box h2 { font-size: 24px; margin-bottom: 8px; }
+    .login-box p { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+
+    input, textarea, select { width: 100%; padding: 12px 16px; background: #0c0e17; border: 1px solid var(--card-border); border-radius: 8px; color: #fff; font-size: 14px; margin-bottom: 16px; outline: none; transition: 0.2s; }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent-red); }
+    button { background: var(--accent-red); color: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; }
+    button:hover { opacity: 0.9; transform: translateY(-1px); }
+    button.secondary { background: #232738; color: #fff; }
+    button.secondary:hover { background: #2e344a; }
+    button.danger { background: #ef4444; }
+
+    /* Navigation tabs */
+    .tabs { display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--card-border); padding-bottom: 12px; }
+    .tab-btn { background: transparent; color: var(--text-muted); padding: 8px 18px; border-radius: 8px; font-size: 14px; }
+    .tab-btn.active { background: rgba(229, 9, 20, 0.2); color: #fff; font-weight: 700; border: 1px solid var(--accent-red); }
+
+    /* Stats Grid */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .stat-card { background: var(--card-bg); border: 1px solid var(--card-border); padding: 20px; border-radius: 12px; }
+    .stat-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+    .stat-val { font-size: 28px; font-weight: 800; margin-top: 6px; color: #fff; }
+
+    /* Table & Content list */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+    .table-container { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+    th { padding: 14px 18px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--card-border); background: #111420; }
+    td { padding: 14px 18px; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
+    tr:hover { background: rgba(255,255,255,0.02); }
+    .thumb { width: 44px; height: 60px; object-fit: cover; border-radius: 6px; }
+
+    /* Modal Form */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 99; padding: 20px; overflow-y: auto; }
+    .modal-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; width: 100%; max-width: 580px; padding: 28px; max-height: 90vh; overflow-y: auto; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-full { grid-column: span 2; }
+    label { font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+
+  <!-- Login Modal -->
+  <div id="login-overlay">
+    <div class="login-box">
+      <h2>URL Stream Admin</h2>
+      <p>Enter your <code>ADMIN_PASSWORD</code> to manage catalog streams.</p>
+      <input type="password" id="admin-pass" placeholder="Enter password (default: admin123)" />
+      <button onclick="handleLogin()" style="width: 100%;">Authorize Dashboard</button>
+      <p id="login-error" style="color: #ef4444; font-size: 12px; margin-top: 12px; display: none;">Invalid admin password</p>
+    </div>
+  </div>
+
+  <header>
+    <div class="logo">
+      <span>▶</span> URL Stream <span>CMS</span>
+      <div class="badge">KOYEB LIVE</div>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <span id="auth-status" style="font-size: 12px; color: var(--text-muted);">Session: Authenticated</span>
+      <button class="secondary" onclick="logout()" style="padding: 6px 14px; font-size: 12px;">Logout</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-title">Total Movies</div>
+        <div class="stat-val" id="count-movies">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Total Web Series</div>
+        <div class="stat-val" id="count-series">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Storage Mode</div>
+        <div class="stat-val" style="font-size: 20px; color: var(--accent-cyan);">Direct Links</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-movies-btn" onclick="switchTab('movies')">Movies Catalogue</button>
+      <button class="tab-btn" id="tab-series-btn" onclick="switchTab('series')">Web Series & Episodes</button>
+    </div>
+
+    <!-- Movies Section -->
+    <div id="section-movies">
+      <div class="section-header">
+        <input type="text" id="movie-search" placeholder="Search movies..." style="max-width: 320px; margin-bottom: 0;" oninput="filterMovies()">
+        <button onclick="openAddMovieModal()">+ Add New Movie</button>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Poster</th>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Year</th>
+              <th>Rating</th>
+              <th>Direct Stream URL</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="movies-tbody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Series Section -->
+    <div id="section-series" style="display: none;">
+      <div class="section-header">
+        <input type="text" id="series-search" placeholder="Search series..." style="max-width: 320px; margin-bottom: 0;" oninput="filterSeries()">
+        <button onclick="openAddSeriesModal()">+ Add New Web Series</button>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Poster</th>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Year</th>
+              <th>Episodes</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="series-tbody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Movie Modal -->
+  <div class="modal-backdrop" id="movie-modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom: 16px;">Add / Edit Movie</h3>
+      <form id="movie-form" onsubmit="saveMovie(event)">
+        <input type="hidden" id="movie-id">
+        <div class="form-grid">
+          <div class="form-full">
+            <label>Title</label>
+            <input type="text" id="movie-title" required placeholder="e.g. Tears of Steel">
+          </div>
+          <div class="form-full">
+            <label>Description</label>
+            <textarea id="movie-desc" rows="3" placeholder="Movie synopsis..."></textarea>
+          </div>
+          <div>
+            <label>Category</label>
+            <input type="text" id="movie-cat" required placeholder="Sci-Fi / Action / Drama">
+          </div>
+          <div>
+            <label>Year</label>
+            <input type="number" id="movie-year" value="2025">
+          </div>
+          <div>
+            <label>Rating (IMDb)</label>
+            <input type="number" step="0.1" id="movie-rating" value="8.5">
+          </div>
+          <div>
+            <label>Duration</label>
+            <input type="text" id="movie-duration" value="1h 50m">
+          </div>
+          <div class="form-full">
+            <label>Poster Image URL</label>
+            <input type="url" id="movie-poster" required placeholder="https://...">
+          </div>
+          <div class="form-full">
+            <label>Banner Image URL</label>
+            <input type="url" id="movie-banner" placeholder="https://...">
+          </div>
+          <div class="form-full">
+            <label>Direct Stream URL (.m3u8 / .mp4 / .mkv)</label>
+            <input type="url" id="movie-stream" required placeholder="https://example.com/video.m3u8">
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+          <button type="button" class="secondary" onclick="closeModals()">Cancel</button>
+          <button type="submit">Save Movie</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Series Modal -->
+  <div class="modal-backdrop" id="series-modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom: 16px;">Add Web Series</h3>
+      <form id="series-form" onsubmit="saveSeries(event)">
+        <div class="form-grid">
+          <div class="form-full">
+            <label>Series Title</label>
+            <input type="text" id="series-title" required placeholder="e.g. Cyberpunk: 2099">
+          </div>
+          <div class="form-full">
+            <label>Description</label>
+            <textarea id="series-desc" rows="3" placeholder="Series synopsis..."></textarea>
+          </div>
+          <div>
+            <label>Category</label>
+            <input type="text" id="series-cat" required placeholder="Sci-Fi / Drama">
+          </div>
+          <div>
+            <label>Year</label>
+            <input type="number" id="series-year" value="2025">
+          </div>
+          <div class="form-full">
+            <label>Poster Image URL</label>
+            <input type="url" id="series-poster" required placeholder="https://...">
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+          <button type="button" class="secondary" onclick="closeModals()">Cancel</button>
+          <button type="submit">Save Series</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Episode Modal -->
+  <div class="modal-backdrop" id="episode-modal">
+    <div class="modal-card">
+      <h3 style="margin-bottom: 16px;">Add Episode to Series</h3>
+      <form id="episode-form" onsubmit="saveEpisode(event)">
+        <input type="hidden" id="ep-series-id">
+        <div class="form-grid">
+          <div>
+            <label>Season #</label>
+            <input type="number" id="ep-season" value="1">
+          </div>
+          <div>
+            <label>Episode #</label>
+            <input type="number" id="ep-num" value="1">
+          </div>
+          <div class="form-full">
+            <label>Episode Title</label>
+            <input type="text" id="ep-title" required placeholder="S1:E1 - The Awakening">
+          </div>
+          <div class="form-full">
+            <label>Thumbnail URL</label>
+            <input type="url" id="ep-thumb" placeholder="https://...">
+          </div>
+          <div class="form-full">
+            <label>Direct Stream URL (.m3u8 / .mp4)</label>
+            <input type="url" id="ep-stream" required placeholder="https://...">
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+          <button type="button" class="secondary" onclick="closeModals()">Cancel</button>
+          <button type="submit">Add Episode</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let token = sessionStorage.getItem('admin_token');
+    let movies = [];
+    let series = [];
+
+    window.onload = () => {
+      if (token) {
+        document.getElementById('login-overlay').style.display = 'none';
+        loadData();
+      }
+    };
+
+    async function handleLogin() {
+      const password = document.getElementById('admin-pass').value;
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (res.ok && data.token) {
+          token = data.token;
+          sessionStorage.setItem('admin_token', token);
+          document.getElementById('login-overlay').style.display = 'none';
+          loadData();
+        } else {
+          document.getElementById('login-error').style.display = 'block';
+        }
+      } catch (err) {
+        alert('Server connection error');
+      }
+    }
+
+    function logout() {
+      sessionStorage.removeItem('admin_token');
+      location.reload();
+    }
+
+    async function loadData() {
+      const [mRes, sRes] = await Promise.all([
+        fetch('/api/movies'),
+        fetch('/api/series')
+      ]);
+      movies = await mRes.json();
+      series = await sRes.json();
+      document.getElementById('count-movies').innerText = movies.length;
+      document.getElementById('count-series').innerText = series.length;
+      renderMovies(movies);
+      renderSeries(series);
+    }
+
+    function switchTab(tab) {
+      document.getElementById('section-movies').style.display = tab === 'movies' ? 'block' : 'none';
+      document.getElementById('section-series').style.display = tab === 'series' ? 'block' : 'none';
+      document.getElementById('tab-movies-btn').classList.toggle('active', tab === 'movies');
+      document.getElementById('tab-series-btn').classList.toggle('active', tab === 'series');
+    }
+
+    function renderMovies(list) {
+      const tbody = document.getElementById('movies-tbody');
+      tbody.innerHTML = list.map(m => {
+        const id = m._id || m.id;
+        return `
+          <tr>
+            <td><img src="${m.poster}" class="thumb" onerror="this.src='https://placehold.co/44x60/151824/white?text=No+Img'"></td>
+            <td><strong>${m.title}</strong></td>
+            <td><span class="badge">${m.category}</span></td>
+            <td>${m.year}</td>
+            <td>★ ${m.rating}</td>
+            <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-cyan);">${m.streamUrl}</td>
+            <td>
+              <button class="secondary" style="padding: 4px 8px; font-size: 11px;" onclick="editMovie('${id}')">Edit</button>
+              <button class="danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteMovie('${id}')">Del</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderSeries(list) {
+      const tbody = document.getElementById('series-tbody');
+      tbody.innerHTML = list.map(s => {
+        const id = s._id || s.id;
+        const epCount = (s.episodes && s.episodes.length) || 0;
+        return `
+          <tr>
+            <td><img src="${s.poster}" class="thumb" onerror="this.src='https://placehold.co/44x60/151824/white?text=No+Img'"></td>
+            <td><strong>${s.title}</strong></td>
+            <td><span class="badge">${s.category}</span></td>
+            <td>${s.year}</td>
+            <td>${epCount} Episodes</td>
+            <td>
+              <button class="secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openAddEpisodeModal('${id}')">+ Episode</button>
+              <button class="danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteSeries('${id}')">Del</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterMovies() {
+      const q = document.getElementById('movie-search').value.toLowerCase();
+      renderMovies(movies.filter(m => m.title.toLowerCase().includes(q) || m.category.toLowerCase().includes(q)));
+    }
+
+    function filterSeries() {
+      const q = document.getElementById('series-search').value.toLowerCase();
+      renderSeries(series.filter(s => s.title.toLowerCase().includes(q) || s.category.toLowerCase().includes(q)));
+    }
+
+    function openAddMovieModal() {
+      document.getElementById('movie-id').value = '';
+      document.getElementById('movie-form').reset();
+      document.getElementById('movie-modal').style.display = 'flex';
+    }
+
+    function openAddSeriesModal() {
+      document.getElementById('series-form').reset();
+      document.getElementById('series-modal').style.display = 'flex';
+    }
+
+    function openAddEpisodeModal(seriesId) {
+      document.getElementById('ep-series-id').value = seriesId;
+      document.getElementById('episode-form').reset();
+      document.getElementById('episode-modal').style.display = 'flex';
+    }
+
+    function closeModals() {
+      document.querySelectorAll('.modal-backdrop').forEach(el => el.style.display = 'none');
+    }
+
+    async function saveMovie(e) {
+      e.preventDefault();
+      const id = document.getElementById('movie-id').value;
+      const payload = {
+        title: document.getElementById('movie-title').value,
+        description: document.getElementById('movie-desc').value,
+        category: document.getElementById('movie-cat').value,
+        year: parseInt(document.getElementById('movie-year').value) || 2025,
+        rating: parseFloat(document.getElementById('movie-rating').value) || 8.5,
+        duration: document.getElementById('movie-duration').value,
+        poster: document.getElementById('movie-poster').value,
+        banner: document.getElementById('movie-banner').value,
+        streamUrl: document.getElementById('movie-stream').value
+      };
+
+      const url = id ? `/api/movies/${id}` : '/api/movies';
+      const method = id ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        closeModals();
+        loadData();
+      } else {
+        alert('Failed to save movie');
+      }
+    }
+
+    async function saveSeries(e) {
+      e.preventDefault();
+      const payload = {
+        title: document.getElementById('series-title').value,
+        description: document.getElementById('series-desc').value,
+        category: document.getElementById('series-cat').value,
+        year: parseInt(document.getElementById('series-year').value) || 2025,
+        poster: document.getElementById('series-poster').value
+      };
+
+      const res = await fetch('/api/series', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        closeModals();
+        loadData();
+      } else {
+        alert('Failed to save series');
+      }
+    }
+
+    async function saveEpisode(e) {
+      e.preventDefault();
+      const payload = {
+        seriesId: document.getElementById('ep-series-id').value,
+        season: parseInt(document.getElementById('ep-season').value) || 1,
+        episodeNumber: parseInt(document.getElementById('ep-num').value) || 1,
+        title: document.getElementById('ep-title').value,
+        thumbnail: document.getElementById('ep-thumb').value,
+        streamUrl: document.getElementById('ep-stream').value
+      };
+
+      const res = await fetch('/api/episodes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        closeModals();
+        loadData();
+      } else {
+        alert('Failed to add episode');
+      }
+    }
+
+    async function deleteMovie(id) {
+      if (!confirm('Are you sure you want to delete this movie?')) return;
+      await fetch(`/api/movies/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      loadData();
+    }
+
+    async function deleteSeries(id) {
+      if (!confirm('Are you sure you want to delete this series and all its episodes?')) return;
+      await fetch(`/api/series/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      loadData();
+    }
+  </script>
+</body>
+</html>
