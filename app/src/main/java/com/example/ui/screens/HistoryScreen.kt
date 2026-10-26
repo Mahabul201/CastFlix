@@ -50,6 +50,8 @@ import coil.request.ImageRequest
 import com.example.data.local.WatchHistoryEntity
 import com.example.data.model.Episode
 import com.example.data.model.MediaItem
+import com.example.data.model.ResumePoint
+import com.example.ui.theme.Dimens
 import com.example.data.repository.StreamRepository
 import kotlinx.coroutines.launch
 
@@ -57,13 +59,14 @@ import kotlinx.coroutines.launch
 fun HistoryScreen(
   repository: StreamRepository,
   onBack: () -> Unit,
-  onPlay: (MediaItem, Episode?, Long) -> Unit
+  onOpen: (MediaItem, ResumePoint) -> Unit
 ) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   val history by repository.watchHistory.collectAsState(initial = emptyList())
   var showClearDialog by remember { mutableStateOf(false) }
 
+  // Tap on a row: open the watch page right at the saved episode and position
   fun resume(h: WatchHistoryEntity) {
     scope.launch {
       val known = repository.getMediaById(h.mediaId)
@@ -76,15 +79,35 @@ fun HistoryScreen(
         category = "",
         year = 2025,
         rating = 0.0,
-        streamUrl = h.streamUrl,
-        isSeries = h.isSeries
+        streamUrl = if (h.isSeries) "" else h.streamUrl,
+        isSeries = h.isSeries,
+        // A title that is no longer in the catalogue still needs its one known episode
+        episodes = if (h.isSeries) {
+          listOf(
+            Episode(
+              id = h.id,
+              seriesId = h.mediaId,
+              season = h.season,
+              episodeNumber = h.episodeNumber,
+              title = h.episodeTitle.ifBlank { "Episode ${h.episodeNumber}" },
+              thumbnail = h.poster,
+              streamUrl = h.streamUrl
+            )
+          )
+        } else {
+          emptyList()
+        }
       )
-      val episode = if (h.isSeries) {
-        media.episodes.firstOrNull { it.season == h.season && it.episodeNumber == h.episodeNumber }
-      } else {
-        null
-      }
-      onPlay(media, episode, h.lastPositionMs)
+      onOpen(
+        media,
+        ResumePoint(
+          mediaId = h.mediaId,
+          season = if (h.isSeries) h.season else null,
+          episodeNumber = if (h.isSeries) h.episodeNumber else null,
+          positionMs = h.lastPositionMs,
+          durationMs = h.durationMs
+        )
+      )
     }
   }
 
@@ -98,7 +121,7 @@ fun HistoryScreen(
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 8.dp, vertical = 8.dp),
+        .padding(horizontal = Dimens.ScreenHorizontal - 8.dp, vertical = 8.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
       IconButton(onClick = onBack) {
@@ -129,8 +152,11 @@ fun HistoryScreen(
     } else {
       LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(
+          horizontal = Dimens.ScreenHorizontal,
+          vertical = 8.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(Dimens.ListGap)
       ) {
         items(history, key = { it.id }) { h ->
           val fraction = if (h.durationMs > 0L) {
