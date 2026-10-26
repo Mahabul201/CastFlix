@@ -166,6 +166,15 @@ const NotificationSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+const AppUpdateSchema = new mongoose.Schema({
+  versionCode: { type: Number, required: true },
+  versionName: { type: String, default: "" },
+  apkUrl: { type: String, required: true },
+  changelog: { type: String, default: "" },
+  force: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+
 const EpisodeSchema = new mongoose.Schema({
   seriesId: { type: String, required: true },
   season: { type: Number, default: 1 },
@@ -219,8 +228,9 @@ function prepareVideoBody(data, partial) {
   return null;
 }
 
-let MovieModel, SeriesModel, EpisodeModel, NotificationModel;
+let MovieModel, SeriesModel, EpisodeModel, NotificationModel, AppUpdateModel;
 let inMemoryNotifications = [];
+let inMemoryUpdate = null;
 
 if (MONGODB_URL) {
   mongoose.connect(MONGODB_URL)
@@ -231,6 +241,7 @@ if (MONGODB_URL) {
       SeriesModel = mongoose.model('Series', SeriesSchema);
       EpisodeModel = mongoose.model('Episode', EpisodeSchema);
       NotificationModel = mongoose.model('Notification', NotificationSchema);
+      AppUpdateModel = mongoose.model('AppUpdate', AppUpdateSchema);
 
       // Seed if empty
       const count = await MovieModel.countDocuments();
@@ -605,6 +616,72 @@ app.delete('/api/notifications/:id', authMiddleware, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// --- App updates ---
+// Public: the app asks for the newest published version (null body fields when none)
+app.get('/api/update', async (req, res) => {
+  try {
+    const latest = isMongoConnected
+      ? await AppUpdateModel.findOne().sort({ createdAt: -1 }).lean()
+      : inMemoryUpdate;
+    res.json(latest || { versionCode: 0, versionName: '', apkUrl: '', changelog: '', force: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: publish a new version. Every app with a lower versionCode shows an update prompt.
+app.post('/api/update', authMiddleware, async (req, res) => {
+  try {
+    const versionCode = parseInt(req.body.versionCode);
+    const apkUrl = String(req.body.apkUrl || '').trim();
+    if (!versionCode || versionCode < 1) {
+      return res.status(400).json({ error: "Version code must be a number greater than 0" });
+    }
+    if (!/^https?:\/\//i.test(apkUrl)) {
+      return res.status(400).json({ error: "APK link must start with http:// or https://" });
+    }
+    const data = {
+      versionCode,
+      versionName: String(req.body.versionName || '').trim().slice(0, 30),
+      apkUrl,
+      changelog: String(req.body.changelog || '').trim().slice(0, 1000),
+      force: req.body.force === true || req.body.force === 'true'
+    };
+    if (isMongoConnected) {
+      const created = await AppUpdateModel.create(data);
+      return res.status(201).json(created);
+    }
+    inMemoryUpdate = { ...data, id: "upd_" + Date.now(), createdAt: Date.now() };
+    res.status(201).json(inMemoryUpdate);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: stop offering the update
+app.delete('/api/update', authMiddleware, async (req, res) => {
+  try {
+    if (isMongoConnected) await AppUpdateModel.deleteMany({});
+    else inMemoryUpdate = null;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Share link: opens the newest APK (used by the app's Share button)
+app.get('/download', async (req, res) => {
+  try {
+    const latest = isMongoConnected
+      ? await AppUpdateModel.findOne().sort({ createdAt: -1 }).lean()
+      : inMemoryUpdate;
+    if (latest && latest.apkUrl) return res.redirect(latest.apkUrl);
+    res.status(404).send('No download is published yet.');
+  } catch (err) {
+    res.status(500).send(err.message);
   }
 });
 
