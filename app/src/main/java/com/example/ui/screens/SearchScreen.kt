@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.statusBarsPadding
 import com.example.ui.theme.Dimens
 import androidx.compose.animation.AnimatedVisibility
@@ -67,7 +69,7 @@ fun SearchScreen(
   var searchResults by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
   val coroutineScope = rememberCoroutineScope()
 
-  val filters = listOf("All", "Movies", "Web Series")
+  val filters = listOf("All", "Movies", "Web Series", "Anime")
 
   LaunchedEffect(searchQuery, selectedFilter) {
     searchResults = repository.searchMedia(searchQuery, selectedFilter)
@@ -114,7 +116,9 @@ fun SearchScreen(
 
     // Filter Chips
     Row(
-      modifier = Modifier.fillMaxWidth(),
+      modifier = Modifier
+        .fillMaxWidth()
+        .horizontalScroll(rememberScrollState()),
       horizontalArrangement = Arrangement.spacedBy(8.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
