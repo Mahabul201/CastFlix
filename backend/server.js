@@ -15,6 +15,32 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- Normalize Mongo docs for the Android app (_id -> id, createdAt -> Long) ---
+function normalizeForApp(value) {
+  if (Array.isArray(value)) return value.map(normalizeForApp);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (k === '__v') continue;
+      if (k === '_id') { if (value.id === undefined) out.id = String(v); continue; }
+      out[k] = normalizeForApp(v);
+    }
+    if (typeof out.createdAt === 'string') {
+      const t = Date.parse(out.createdAt);
+      out.createdAt = isNaN(t) ? Date.now() : t;
+    }
+    return out;
+  }
+  return value;
+}
+
+app.use((req, res, next) => {
+  const origJson = res.json.bind(res);
+  res.json = (body) => origJson(normalizeForApp(JSON.parse(JSON.stringify(body === undefined ? null : body))));
+  next();
+});
+
+
 // --- In-Memory Fallback Store (Used if MONGODB_URL is not provided) ---
 let isMongoConnected = false;
 
@@ -147,9 +173,14 @@ if (MONGODB_URL) {
       const count = await MovieModel.countDocuments();
       if (count === 0) {
         console.log('Seeding initial MongoDB sample catalogue...');
-        await MovieModel.insertMany(inMemoryMovies);
-        await SeriesModel.insertMany(inMemorySeries);
-        await EpisodeModel.insertMany(inMemoryEpisodes);
+        const strip = ({ id, ...rest }) => rest;
+        await MovieModel.insertMany(inMemoryMovies.map(strip));
+        const seededSeries = await SeriesModel.insertMany(inMemorySeries.map(strip));
+        const idMap = {};
+        inMemorySeries.forEach((s, i) => { idMap[s.id] = String(seededSeries[i]._id); });
+        await EpisodeModel.insertMany(
+          inMemoryEpisodes.map(e => ({ ...strip(e), seriesId: idMap[e.seriesId] || e.seriesId }))
+        );
       }
     })
     .catch(err => {
