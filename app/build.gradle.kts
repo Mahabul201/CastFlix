@@ -105,6 +105,7 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation("androidx.work:work-runtime-ktx:2.9.1")
   implementation(libs.coil.compose)
   implementation(libs.media3.exoplayer)
   implementation(libs.media3.ui)
