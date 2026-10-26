@@ -81,6 +81,12 @@
       .form-full, .quality-box { grid-column: span 1; }
       .modal-card { padding: 20px; }
     }
+    .notify-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .notify-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; }
+    .notify-card .hint { font-size: 12px; color: var(--text-muted); }
+    .ntf-row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--card-border); }
+    .ntf-row:last-child { border-bottom: 0; }
+    @media (max-width: 800px) { .notify-grid { grid-template-columns: 1fr; } }
     label { font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px; }
   </style>
 </head>
@@ -119,6 +125,10 @@
         <div class="stat-val" id="count-series">0</div>
       </div>
       <div class="stat-card">
+        <div class="stat-title">Total Anime</div>
+        <div class="stat-val" id="count-anime">0</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-title">Storage Mode</div>
         <div class="stat-val" style="font-size: 20px; color: var(--accent-cyan);">Direct Links</div>
       </div>
@@ -127,6 +137,8 @@
     <div class="tabs">
       <button class="tab-btn active" id="tab-movies-btn" onclick="switchTab('movies')">Movies Catalogue</button>
       <button class="tab-btn" id="tab-series-btn" onclick="switchTab('series')">Web Series & Episodes</button>
+      <button class="tab-btn" id="tab-anime-btn" onclick="switchTab('anime')">Anime</button>
+      <button class="tab-btn" id="tab-notify-btn" onclick="switchTab('notify')">Notifications</button>
     </div>
 
     <!-- Movies Section -->
@@ -159,8 +171,8 @@
     <!-- Series Section -->
     <div id="section-series" style="display: none;">
       <div class="section-header">
-        <input type="text" id="series-search" placeholder="Search series..." style="max-width: 320px; margin-bottom: 0;" oninput="filterSeries()">
-        <button onclick="openAddSeriesModal()">+ Add New Web Series</button>
+        <input type="text" id="series-search" placeholder="Search..." style="max-width: 320px; margin-bottom: 0;" oninput="filterSeries()">
+        <button id="add-series-btn" onclick="openAddSeriesModal()">+ Add New Web Series</button>
       </div>
 
       <div class="table-container">
@@ -179,6 +191,30 @@
             <!-- Dynamically populated -->
           </tbody>
         </table>
+      </div>
+    </div>
+    <!-- Notifications Section -->
+    <div id="section-notify" style="display: none;">
+      <div class="notify-grid">
+        <div class="notify-card">
+          <h3 style="margin-bottom: 4px;">Send notification to app</h3>
+          <p class="hint" style="margin-bottom: 16px;">Every phone with the app gets it within about 15 minutes, and it also shows in the app's bell inbox.</p>
+          <form id="notify-form" onsubmit="sendNotification(event)">
+            <label>Title</label>
+            <input type="text" id="ntf-title" maxlength="100" required placeholder="New episode is live!">
+            <label>Message</label>
+            <textarea id="ntf-message" rows="3" maxlength="500" required placeholder="Cyberpunk: 2099 S1:E5 is now available."></textarea>
+            <label>Image URL (optional)</label>
+            <input type="url" id="ntf-image" placeholder="https://...">
+            <label>Link (optional)</label>
+            <input type="url" id="ntf-link" placeholder="https://...">
+            <button type="submit" style="width: 100%;">Send Notification</button>
+          </form>
+        </div>
+        <div class="notify-card">
+          <h3 style="margin-bottom: 12px;">Sent notifications</h3>
+          <div id="notify-list"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -245,8 +281,9 @@
   <!-- Add Series Modal -->
   <div class="modal-backdrop" id="series-modal">
     <div class="modal-card">
-      <h3 style="margin-bottom: 16px;">Add Web Series</h3>
+      <h3 style="margin-bottom: 16px;" id="series-modal-title">Add Web Series</h3>
       <form id="series-form" onsubmit="saveSeries(event)">
+        <input type="hidden" id="series-type" value="series">
         <div class="form-grid">
           <div class="form-full">
             <label>Series Title</label>
@@ -340,6 +377,8 @@
     let movies = [];
     let series = [];
     let activeSeriesId = null;
+    let seriesMode = 'series'; // 'series' | 'anime'
+    let notifications = [];
     const QUALITIES = ['480p', '720p', '1080p'];
 
     function esc(v) {
@@ -409,17 +448,30 @@
       ]);
       movies = await mRes.json();
       series = await sRes.json();
+      const animeCount = series.filter(isAnimeItem).length;
       document.getElementById('count-movies').innerText = movies.length;
-      document.getElementById('count-series').innerText = series.length;
+      document.getElementById('count-series').innerText = series.length - animeCount;
+      document.getElementById('count-anime').innerText = animeCount;
       renderMovies(movies);
-      renderSeries(series);
+      filterSeries();
+      loadNotifications();
     }
 
+    function isAnimeItem(x) { return x.type === 'anime' || x.isAnime === true; }
+
     function switchTab(tab) {
+      if (tab === 'series' || tab === 'anime') seriesMode = tab;
+      const showList = tab === 'series' || tab === 'anime';
       document.getElementById('section-movies').style.display = tab === 'movies' ? 'block' : 'none';
-      document.getElementById('section-series').style.display = tab === 'series' ? 'block' : 'none';
-      document.getElementById('tab-movies-btn').classList.toggle('active', tab === 'movies');
-      document.getElementById('tab-series-btn').classList.toggle('active', tab === 'series');
+      document.getElementById('section-series').style.display = showList ? 'block' : 'none';
+      document.getElementById('section-notify').style.display = tab === 'notify' ? 'block' : 'none';
+      ['movies', 'series', 'anime', 'notify'].forEach(t =>
+        document.getElementById(`tab-${t}-btn`).classList.toggle('active', tab === t));
+      if (showList) {
+        document.getElementById('add-series-btn').innerText = seriesMode === 'anime' ? '+ Add New Anime' : '+ Add New Web Series';
+        document.getElementById('series-search').value = '';
+        filterSeries();
+      }
     }
 
     function renderMovies(list) {
@@ -472,7 +524,9 @@
 
     function filterSeries() {
       const q = document.getElementById('series-search').value.toLowerCase();
-      renderSeries(series.filter(s => s.title.toLowerCase().includes(q) || s.category.toLowerCase().includes(q)));
+      renderSeries(series.filter(s =>
+        isAnimeItem(s) === (seriesMode === 'anime') &&
+        (s.title.toLowerCase().includes(q) || s.category.toLowerCase().includes(q))));
     }
 
     function openAddMovieModal() {
@@ -502,6 +556,8 @@
 
     function openAddSeriesModal() {
       document.getElementById('series-form').reset();
+      document.getElementById('series-type').value = seriesMode === 'anime' ? 'anime' : 'series';
+      document.getElementById('series-modal-title').innerText = seriesMode === 'anime' ? 'Add Anime' : 'Add Web Series';
       document.getElementById('series-modal').style.display = 'flex';
     }
 
@@ -615,7 +671,8 @@
         description: document.getElementById('series-desc').value,
         category: document.getElementById('series-cat').value,
         year: parseInt(document.getElementById('series-year').value) || 2025,
-        poster: document.getElementById('series-poster').value
+        poster: document.getElementById('series-poster').value,
+        type: document.getElementById('series-type').value
       };
 
       const res = await fetch('/api/series', {
@@ -678,12 +735,62 @@
     }
 
     async function deleteSeries(id) {
-      if (!confirm('Are you sure you want to delete this series and all its episodes?')) return;
+      if (!confirm('Are you sure you want to delete this and all its episodes?')) return;
       await fetch(`/api/series/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       loadData();
+    }
+
+    // ---- Notifications ----
+    async function loadNotifications() {
+      try {
+        const res = await fetch('/api/notifications?limit=50');
+        notifications = await res.json();
+      } catch (_) { notifications = []; }
+      const box = document.getElementById('notify-list');
+      box.innerHTML = notifications.length ? notifications.map(n => {
+        const nid = n._id || n.id;
+        const when = new Date(n.createdAt).toLocaleString();
+        return `
+          <div class="ntf-row">
+            <div style="min-width:0;">
+              <div class="ep-title">${esc(n.title)}</div>
+              <div style="font-size:12px; color: var(--text-muted); margin-top:4px;">${esc(n.message)}</div>
+              <div class="ep-meta">${esc(when)}</div>
+            </div>
+            <div><button class="danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteNotification('${nid}')">Del</button></div>
+          </div>`;
+      }).join('') : '<p style="color: var(--text-muted); font-size: 13px;">Nothing sent yet.</p>';
+    }
+
+    async function sendNotification(e) {
+      e.preventDefault();
+      const payload = {
+        title: document.getElementById('ntf-title').value.trim(),
+        message: document.getElementById('ntf-message').value.trim(),
+        imageUrl: document.getElementById('ntf-image').value.trim(),
+        link: document.getElementById('ntf-link').value.trim()
+      };
+      const res = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        document.getElementById('notify-form').reset();
+        await loadNotifications();
+        alert('Notification sent to the app.');
+      } else {
+        alert(await errorMessage(res, 'Failed to send notification'));
+      }
+    }
+
+    async function deleteNotification(id) {
+      if (!confirm('Delete this notification?')) return;
+      await fetch(`/api/notifications/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      loadNotifications();
     }
   </script>
 </body>
