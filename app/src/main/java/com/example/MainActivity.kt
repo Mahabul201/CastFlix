@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Episode
 import com.example.data.model.MediaItem
+import com.example.data.notify.AppNotifier
+import com.example.ui.screens.NotificationsScreen
 import com.example.data.model.ResumePoint
 import com.example.data.repository.DownloadManagerHelper
 import com.example.data.repository.StreamRepository
@@ -107,6 +109,20 @@ class MainActivity : ComponentActivity() {
 
     val repository = StreamRepository(this)
     val downloadHelper = DownloadManagerHelper(this)
+
+    // Admin notifications: channel, background check, and permission on Android 13+
+    AppNotifier.ensureChannel(this)
+    AppNotifier.schedule(this)
+    val notificationPermission = registerForActivityResult(
+      androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { }
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU &&
+      androidx.core.content.ContextCompat.checkSelfPermission(
+        this, android.Manifest.permission.POST_NOTIFICATIONS
+      ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+    ) {
+      notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
 
     setContent {
       val settings by repository.settings.collectAsState()
@@ -167,7 +183,14 @@ fun MainAppContent(
   var resumePoint by remember { mutableStateOf<ResumePoint?>(null) }
   var showHistory by remember { mutableStateOf(false) }
   var seeAllTitle by remember { mutableStateOf<String?>(null) }
-  var seeAllIsSeries by remember { mutableStateOf(false) }
+  var seeAllKind by remember { mutableStateOf("movies") }
+  var showNotifications by remember { mutableStateOf(false) }
+
+  // Check for new admin notifications every time the app opens
+  val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+  androidx.compose.runtime.LaunchedEffect(Unit) {
+    AppNotifier.checkAndNotify(appContext, repository)
+  }
 
   val coroutineScope = rememberCoroutineScope()
 
@@ -237,6 +260,16 @@ fun MainAppContent(
     return
   }
 
+  // Notifications inbox
+  if (showNotifications) {
+    BackHandler { showNotifications = false }
+    NotificationsScreen(
+      repository = repository,
+      onBack = { showNotifications = false }
+    )
+    return
+  }
+
   // History page
   if (showHistory) {
     BackHandler { showHistory = false }
@@ -253,7 +286,12 @@ fun MainAppContent(
     BackHandler { seeAllTitle = null }
     val movies by repository.movies.collectAsState()
     val series by repository.series.collectAsState()
-    val items = if (seeAllIsSeries) series else movies
+    val anime by repository.anime.collectAsState()
+    val items = when (seeAllKind) {
+      "series" -> series
+      "anime" -> anime
+      else -> movies
+    }
 
     SeeAllScreen(
       title = seeAllTitle!!,
@@ -326,9 +364,10 @@ fun MainAppContent(
             onPlayMedia = { media, _ -> openDetails(media) },
             onOpenDetails = { media -> openDetails(media) },
             onOpenHistory = { showHistory = true },
-            onSeeAllClick = { title, isSeries ->
+            onOpenNotifications = { showNotifications = true },
+            onSeeAllClick = { title, kind ->
               seeAllTitle = title
-              seeAllIsSeries = isSeries
+              seeAllKind = kind
             }
           )
           NavigationTab.SEARCH -> SearchScreen(
