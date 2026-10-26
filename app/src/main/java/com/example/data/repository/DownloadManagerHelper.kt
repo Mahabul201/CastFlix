@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -38,6 +39,11 @@ class DownloadManagerHelper(private val context: Context) {
 
   val allDownloads: Flow<List<DownloadItemEntity>> = downloadDao.getAllDownloads()
 
+  private val httpClient = okhttp3.OkHttpClient.Builder()
+    .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+    .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+    .build()
+
   suspend fun startDownload(media: MediaItem, customUrl: String? = null) = withContext(Dispatchers.IO) {
     val downloadUrl = customUrl ?: media.streamUrl
     val downloadId = "dl_${media.id}_${System.currentTimeMillis()}"
@@ -51,36 +57,80 @@ class DownloadManagerHelper(private val context: Context) {
       poster = media.poster,
       streamUrl = downloadUrl,
       localFilePath = targetFile.absolutePath,
-      totalBytes = 250L * 1024 * 1024, // Estimate 250MB
+      totalBytes = 0L,
       downloadedBytes = 0L,
       status = "DOWNLOADING",
       progressPercent = 0
     )
     downloadDao.insertOrUpdate(item)
+    launchDownload(downloadId)
+  }
 
-    // Launch background progress simulation & download sync
+  private fun launchDownload(id: String) {
+    activeJobs[id]?.cancel()
     val job = scope.launch {
-      var currentProgress = 0
-      while (isActive && currentProgress < 100) {
-        delay(800)
-        currentProgress += (5..12).random()
-        if (currentProgress > 100) currentProgress = 100
-        val downloadedBytes = (item.totalBytes * (currentProgress / 100.0)).toLong()
-        val newStatus = if (currentProgress >= 100) "COMPLETED" else "DOWNLOADING"
-        downloadDao.updateProgress(downloadId, newStatus, currentProgress, downloadedBytes)
-        if (currentProgress >= 100) {
-          // Touch local dummy file to ensure it exists for local playback
-          try {
-            if (!targetFile.exists()) {
-              targetFile.createNewFile()
-            }
-          } catch (_: Exception) {}
-          break
+      val item = downloadDao.getById(id) ?: return@launch
+      val file = File(item.localFilePath)
+      try {
+        if (item.streamUrl.contains(".m3u8", ignoreCase = true)) {
+          // HLS playlists cannot be saved as a single file
+          downloadDao.updateProgress(id, "FAILED", 0, 0L)
+          return@launch
         }
+        val existing = if (file.exists()) file.length() else 0L
+        val builder = okhttp3.Request.Builder().url(item.streamUrl)
+        if (existing > 0L) builder.header("Range", "bytes=$existing-")
+
+        httpClient.newCall(builder.build()).execute().use { response ->
+          if (response.code == 416) {
+            downloadDao.updateProgress(id, "COMPLETED", 100, file.length())
+            return@launch
+          }
+          if (!response.isSuccessful) {
+            downloadDao.updateProgress(id, "FAILED", item.progressPercent, existing)
+            return@launch
+          }
+          val body = response.body
+          if (body == null) {
+            downloadDao.updateProgress(id, "FAILED", item.progressPercent, existing)
+            return@launch
+          }
+          val resumed = response.code == 206
+          val start = if (resumed) existing else 0L
+          val length = body.contentLength()
+          val total = if (length > 0L) length + start else 0L
+          if (total > 0L) downloadDao.updateTotal(id, total)
+
+          java.io.FileOutputStream(file, resumed).use { out ->
+            body.byteStream().use { input ->
+              val buffer = ByteArray(64 * 1024)
+              var downloaded = start
+              var lastUpdate = 0L
+              while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                out.write(buffer, 0, read)
+                downloaded += read
+                ensureActive()
+                val now = System.currentTimeMillis()
+                if (now - lastUpdate > 500L) {
+                  val percent = if (total > 0L) ((downloaded * 100) / total).toInt() else 0
+                  downloadDao.updateProgress(id, "DOWNLOADING", percent, downloaded)
+                  lastUpdate = now
+                }
+              }
+            }
+          }
+          downloadDao.updateProgress(id, "COMPLETED", 100, file.length())
+        }
+      } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        val current = downloadDao.getById(id)
+        downloadDao.updateProgress(id, "FAILED", current?.progressPercent ?: 0, current?.downloadedBytes ?: 0L)
       }
-      activeJobs.remove(downloadId)
     }
-    activeJobs[downloadId] = job
+    activeJobs[id] = job
   }
 
   suspend fun pauseDownload(id: String) = withContext(Dispatchers.IO) {
@@ -93,20 +143,7 @@ class DownloadManagerHelper(private val context: Context) {
   suspend fun resumeDownload(id: String) = withContext(Dispatchers.IO) {
     val item = downloadDao.getById(id) ?: return@withContext
     downloadDao.updateProgress(id, "DOWNLOADING", item.progressPercent, item.downloadedBytes)
-
-    val job = scope.launch {
-      var currentProgress = item.progressPercent
-      while (isActive && currentProgress < 100) {
-        delay(800)
-        currentProgress += (6..14).random()
-        if (currentProgress > 100) currentProgress = 100
-        val downloadedBytes = (item.totalBytes * (currentProgress / 100.0)).toLong()
-        val newStatus = if (currentProgress >= 100) "COMPLETED" else "DOWNLOADING"
-        downloadDao.updateProgress(id, newStatus, currentProgress, downloadedBytes)
-      }
-      activeJobs.remove(id)
-    }
-    activeJobs[id] = job
+    launchDownload(id)
   }
 
   suspend fun deleteDownload(id: String) = withContext(Dispatchers.IO) {
