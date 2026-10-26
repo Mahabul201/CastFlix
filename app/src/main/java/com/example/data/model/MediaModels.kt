@@ -63,6 +63,17 @@ data class AppNotification(
   @Json(name = "createdAt") val createdAt: Long = 0L
 )
 
+/** Newest app version published from the admin panel. versionCode 0 = nothing published. */
+@JsonClass(generateAdapter = true)
+data class AppUpdateInfo(
+  @Json(name = "versionCode") val versionCode: Int = 0,
+  @Json(name = "versionName") val versionName: String = "",
+  @Json(name = "apkUrl") val apkUrl: String = "",
+  @Json(name = "changelog") val changelog: String = "",
+  @Json(name = "force") val force: Boolean = false,
+  @Json(name = "createdAt") val createdAt: Long = 0L
+)
+
 data class UserProfile(
   val name: String = "Movie Fan",
   val username: String = "streamer_pro",
@@ -87,6 +98,8 @@ data class StreamSettings(
   val subtitleColor: String = "WHITE",
   val parentalLock: Boolean = false,
   val parentalPin: String = "0000",
+  val notificationsEnabled: Boolean = true,
+  val autoCheckUpdate: Boolean = true,
   val backendUrl: String = "https://gastric-rasla-evamusic-01582837.koyeb.app"
 )
 
