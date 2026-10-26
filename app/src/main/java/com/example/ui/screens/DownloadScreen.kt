@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.example.ui.theme.Dimens
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -117,13 +119,14 @@ fun DownloadScreen(
   Column(
     modifier = Modifier
       .fillMaxSize()
+      .statusBarsPadding()
       .testTag("download_screen")
   ) {
     // Top Storage and Wi-Fi Control Card
     Card(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(16.dp),
+        .padding(horizontal = Dimens.ScreenHorizontal, vertical = Dimens.ScreenTop),
       shape = RoundedCornerShape(16.dp),
       colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
@@ -267,8 +270,13 @@ fun DownloadingTab(
     EmptyDownloadState(message = "No active downloads in progress")
   } else {
     LazyColumn(
-      contentPadding = PaddingValues(16.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp)
+      contentPadding = PaddingValues(
+        start = Dimens.ScreenHorizontal,
+        end = Dimens.ScreenHorizontal,
+        top = 4.dp,
+        bottom = Dimens.ScreenBottom
+      ),
+      verticalArrangement = Arrangement.spacedBy(Dimens.ListGap)
     ) {
       items(items) { item ->
         Card(
@@ -350,8 +358,13 @@ fun DownloadedTab(
     EmptyDownloadState(message = "No downloaded videos yet")
   } else {
     LazyColumn(
-      contentPadding = PaddingValues(16.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp)
+      contentPadding = PaddingValues(
+        start = Dimens.ScreenHorizontal,
+        end = Dimens.ScreenHorizontal,
+        top = 4.dp,
+        bottom = Dimens.ScreenBottom
+      ),
+      verticalArrangement = Arrangement.spacedBy(Dimens.ListGap)
     ) {
       items(items) { item ->
         Card(
@@ -417,7 +430,7 @@ fun LocalFilesTab(
   Column(
     modifier = Modifier
       .fillMaxSize()
-      .padding(16.dp)
+      .padding(horizontal = Dimens.ScreenHorizontal)
   ) {
     Row(
       modifier = Modifier.fillMaxWidth(),
@@ -443,7 +456,7 @@ fun LocalFilesTab(
 
     LazyColumn(
       verticalArrangement = Arrangement.spacedBy(10.dp),
-      contentPadding = PaddingValues(bottom = 80.dp)
+      contentPadding = PaddingValues(bottom = Dimens.ScreenBottom)
     ) {
       items(files) { file ->
         Card(
