@@ -77,6 +77,9 @@ import com.example.data.model.MediaItem
 import com.example.data.model.UserProfile
 import com.example.data.repository.StreamRepository
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Share
+import com.example.util.ShareUtils
 
 val AVATAR_OPTIONS = listOf(
   "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&q=80",
@@ -92,7 +95,8 @@ val AVATAR_OPTIONS = listOf(
 fun ProfileScreen(
   repository: StreamRepository,
   onPlayMedia: (MediaItem, Long) -> Unit,
-  onOpenHistory: () -> Unit = {}
+  onOpenHistory: () -> Unit = {},
+  onOpenNotifications: () -> Unit = {}
 ) {
   val context = LocalContext.current
   val profile by repository.userProfile.collectAsState()
@@ -124,30 +128,54 @@ fun ProfileScreen(
   ) {
     item {
       Spacer(modifier = Modifier.height(Dimens.ScreenTop))
-      Text(
-        text = "Profile",
-        style = MaterialTheme.typography.headlineMedium,
-        fontWeight = FontWeight.ExtraBold,
-        color = MaterialTheme.colorScheme.onBackground
-      )
-      Spacer(modifier = Modifier.height(16.dp))
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text(
+          text = "Profile",
+          style = MaterialTheme.typography.headlineMedium,
+          fontWeight = FontWeight.ExtraBold,
+          color = MaterialTheme.colorScheme.onBackground
+        )
+        IconButton(onClick = { ShareUtils.shareApp(context) }) {
+          Icon(
+            Icons.Default.Share,
+            contentDescription = "Share CastFlix",
+            tint = MaterialTheme.colorScheme.primary
+          )
+        }
+      }
+      Spacer(modifier = Modifier.height(12.dp))
     }
 
     // Profile Card
     item {
       Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         modifier = Modifier.fillMaxWidth()
       ) {
         Column(
-          modifier = Modifier.padding(20.dp),
+          modifier = Modifier
+            .fillMaxWidth()
+            .background(
+              Brush.verticalGradient(
+                colors = listOf(
+                  MaterialTheme.colorScheme.primary.copy(alpha = 0.40f),
+                  MaterialTheme.colorScheme.surfaceVariant
+                ),
+                endY = 420f
+              )
+            )
+            .padding(20.dp),
           horizontalAlignment = Alignment.CenterHorizontally
         ) {
           // Current Avatar with Glow
           Box(
             modifier = Modifier
-              .size(92.dp)
+              .size(96.dp)
               .clip(CircleShape)
               .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
             contentAlignment = Alignment.Center
@@ -219,8 +247,8 @@ fun ProfileScreen(
               Button(
                 onClick = {
                   val updated = UserProfile(
-                    name = nameInput.ifBlank { "Movie Fan" },
-                    username = usernameInput.ifBlank { "streamer_pro" },
+                    name = nameInput.trim().ifBlank { "Movie Fan" },
+                    username = usernameInput.trim().replace(" ", "_").ifBlank { "streamer_pro" },
                     avatarIndex = selectedAvatarIndex
                   )
                   repository.updateUserProfile(updated)
@@ -284,16 +312,32 @@ fun ProfileScreen(
       Spacer(modifier = Modifier.height(20.dp))
     }
 
+    // Quick actions
     item {
-      androidx.compose.material3.OutlinedButton(
-        onClick = onOpenHistory,
-        modifier = Modifier.fillMaxWidth()
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
       ) {
-        Icon(androidx.compose.material.icons.Icons.Default.History, contentDescription = null)
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("Watch History")
+        ProfileAction(
+          label = "History",
+          icon = Icons.Default.History,
+          modifier = Modifier.weight(1f),
+          onClick = onOpenHistory
+        )
+        ProfileAction(
+          label = "Alerts",
+          icon = Icons.Default.Notifications,
+          modifier = Modifier.weight(1f),
+          onClick = onOpenNotifications
+        )
+        ProfileAction(
+          label = "Share app",
+          icon = Icons.Default.Share,
+          modifier = Modifier.weight(1f),
+          onClick = { ShareUtils.shareApp(context) }
+        )
       }
-      Spacer(modifier = Modifier.height(16.dp))
+      Spacer(modifier = Modifier.height(18.dp))
     }
 
     // Watch Stats Grid
@@ -447,6 +491,33 @@ fun ProfileScreen(
           Spacer(modifier = Modifier.height(8.dp))
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun ProfileAction(
+  label: String,
+  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  modifier: Modifier = Modifier,
+  onClick: () -> Unit
+) {
+  Surface(
+    shape = RoundedCornerShape(14.dp),
+    color = MaterialTheme.colorScheme.surfaceVariant,
+    modifier = modifier
+      .clip(RoundedCornerShape(14.dp))
+      .clickable { onClick() }
+  ) {
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 12.dp),
+      horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+      Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+      Spacer(modifier = Modifier.height(4.dp))
+      Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
   }
 }
