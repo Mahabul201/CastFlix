@@ -16,7 +16,7 @@ android {
     applicationId = "com.example"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
+    versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
