@@ -71,6 +71,12 @@ import com.example.data.model.MediaItem
 import com.example.data.repository.StreamRepository
 import com.example.ui.components.MediaPosterCard
 import com.example.ui.components.RecentlyPlayedCard
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Tv
+import com.example.util.ShareUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -83,12 +89,15 @@ fun HomeScreen(
   onOpenDetails: (MediaItem) -> Unit = {},
   onOpenHistory: () -> Unit = {},
   onOpenNotifications: () -> Unit = {},
+  onOpenSearch: () -> Unit = {},
+  updateAvailable: Boolean = false,
   onSeeAllClick: (title: String, kind: String) -> Unit
 ) {
   var homeData by remember { mutableStateOf<HomeResponse?>(null) }
   var selectedCategory by remember { mutableStateOf("All") }
   val historyList by repository.watchHistory.collectAsState(initial = emptyList())
   val coroutineScope = rememberCoroutineScope()
+  val context = LocalContext.current
 
   LaunchedEffect(Unit) {
     homeData = repository.fetchHomeData()
@@ -111,6 +120,115 @@ fun HomeScreen(
         .testTag("home_screen_scroll"),
       contentPadding = PaddingValues(bottom = Dimens.ScreenBottom)
     ) {
+      // 0. HEADER: search button + bell, then Movies / Web Series / Anime buttons
+      item {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = Dimens.ScreenHorizontal)
+            .padding(top = 10.dp, bottom = 12.dp)
+        ) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            // Search button (opens the Search tab)
+            Row(
+              modifier = Modifier
+                .weight(1f)
+                .height(42.dp)
+                .clip(RoundedCornerShape(21.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable { onOpenSearch() }
+                .padding(horizontal = 14.dp)
+                .testTag("home_search_button"),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Icon(
+                Icons.Default.Search,
+                contentDescription = "Search",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+              )
+              Spacer(modifier = Modifier.width(10.dp))
+              Text(
+                "Search movies, series, anime…",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+              )
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // Notification bell with unread badge
+            Box {
+              Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier
+                  .size(42.dp)
+                  .clickable { onOpenNotifications() }
+                  .testTag("home_notification_bell")
+              ) {
+                Box(contentAlignment = Alignment.Center) {
+                  Icon(
+                    Icons.Default.Notifications,
+                    contentDescription = "Notifications",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(22.dp)
+                  )
+                }
+              }
+              val badgeCount = unreadCount + if (updateAvailable) 1 else 0
+              if (badgeCount > 0) {
+                Box(
+                  modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(17.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                  contentAlignment = Alignment.Center
+                ) {
+                  Text(
+                    text = if (badgeCount > 9) "9+" else badgeCount.toString(),
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                  )
+                }
+              }
+            }
+          }
+
+          Spacer(modifier = Modifier.height(12.dp))
+
+          // Movies / Web Series / Anime
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            HomeTypeButton(
+              label = "Movies",
+              icon = Icons.Default.Movie,
+              modifier = Modifier.weight(1f)
+            ) { onSeeAllClick("All Movies", "movies") }
+            HomeTypeButton(
+              label = "Web Series",
+              icon = Icons.Default.Tv,
+              modifier = Modifier.weight(1f)
+            ) { onSeeAllClick("All Web Series", "series") }
+            HomeTypeButton(
+              label = "Anime",
+              icon = Icons.Default.AutoAwesome,
+              modifier = Modifier.weight(1f)
+            ) { onSeeAllClick("All Anime", "anime") }
+          }
+        }
+      }
+
       // 1. TOP BANNER CAROUSEL
       item {
         val featuredList = data?.featured ?: emptyList()
@@ -129,7 +247,7 @@ fun HomeScreen(
           Box(
             modifier = Modifier
               .fillMaxWidth()
-              .height(380.dp)
+              .height(340.dp)
           ) {
             HorizontalPager(
               state = pagerState,
@@ -245,6 +363,24 @@ fun HomeScreen(
                       Icon(Icons.Default.Add, contentDescription = null)
                       Spacer(modifier = Modifier.width(4.dp))
                       Text("My List", maxLines = 1, softWrap = false)
+                    }
+
+                    Surface(
+                      shape = CircleShape,
+                      color = Color.Black.copy(alpha = 0.45f),
+                      modifier = Modifier
+                        .size(40.dp)
+                        .clickable { ShareUtils.shareMedia(context, item) }
+                        .testTag("banner_share_button")
+                    ) {
+                      Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                          Icons.Default.Share,
+                          contentDescription = "Share",
+                          tint = Color.White,
+                          modifier = Modifier.size(20.dp)
+                        )
+                      }
                     }
                   }
                 }
@@ -443,48 +579,6 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(24.dp))
       }
     }
-
-    // Notification bell (top right, over the banner)
-    Box(
-      modifier = Modifier
-        .align(Alignment.TopEnd)
-        .statusBarsPadding()
-        .padding(end = Dimens.ScreenHorizontal - 4.dp, top = 8.dp)
-    ) {
-      Surface(
-        shape = CircleShape,
-        color = Color.Black.copy(alpha = 0.45f),
-        modifier = Modifier
-          .size(42.dp)
-          .clickable { onOpenNotifications() }
-          .testTag("home_notification_bell")
-      ) {
-        Box(contentAlignment = Alignment.Center) {
-          Icon(
-            Icons.Default.Notifications,
-            contentDescription = "Notifications",
-            tint = Color.White
-          )
-        }
-      }
-      if (unreadCount > 0) {
-        Box(
-          modifier = Modifier
-            .align(Alignment.TopEnd)
-            .size(16.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary),
-          contentAlignment = Alignment.Center
-        ) {
-          Text(
-            text = if (unreadCount > 9) "9+" else unreadCount.toString(),
-            color = Color.White,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold
-          )
-        }
-      }
-    }
   }
 }
 
@@ -517,6 +611,40 @@ fun SectionHeader(
           fontWeight = FontWeight.SemiBold
         )
       }
+    }
+  }
+}
+
+@Composable
+private fun HomeTypeButton(
+  label: String,
+  icon: androidx.compose.ui.graphics.vector.ImageVector,
+  modifier: Modifier = Modifier,
+  onClick: () -> Unit
+) {
+  Surface(
+    shape = RoundedCornerShape(14.dp),
+    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+    modifier = modifier
+      .height(44.dp)
+      .clickable { onClick() }
+      .testTag("home_type_$label")
+  ) {
+    Row(
+      modifier = Modifier.fillMaxSize(),
+      horizontalArrangement = Arrangement.Center,
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+      Spacer(modifier = Modifier.width(6.dp))
+      Text(
+        label,
+        color = MaterialTheme.colorScheme.onBackground,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        softWrap = false
+      )
     }
   }
 }
