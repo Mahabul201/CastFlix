@@ -106,6 +106,15 @@ class StreamRepository(private val context: Context) {
     (_movies.value + _series.value).shuffled().take(6)
   }
 
+  suspend fun getEpisodes(media: MediaItem): List<Episode> = withContext(Dispatchers.IO) {
+    if (media.episodes.isNotEmpty()) return@withContext media.episodes
+    try {
+      apiService.getSeriesEpisodes(media.id)
+    } catch (_: Exception) {
+      emptyList()
+    }
+  }
+
   suspend fun getMediaById(id: String): MediaItem? = withContext(Dispatchers.IO) {
     (_movies.value + _series.value).find { it.id == id }
   }
@@ -228,7 +237,7 @@ class StreamRepository(private val context: Context) {
       subtitleColor = prefs.getString("subtitleColor", "WHITE") ?: "WHITE",
       parentalLock = prefs.getBoolean("parentalLock", false),
       parentalPin = prefs.getString("parentalPin", "0000") ?: "0000",
-      backendUrl = prefs.getString("backendUrl", ApiConstants.DEFAULT_KOYEB_FQDN) ?: ApiConstants.DEFAULT_KOYEB_FQDN
+      backendUrl = ApiConstants.DEFAULT_KOYEB_FQDN
     )
   }
 
