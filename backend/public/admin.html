@@ -139,6 +139,7 @@
       <button class="tab-btn" id="tab-series-btn" onclick="switchTab('series')">Web Series & Episodes</button>
       <button class="tab-btn" id="tab-anime-btn" onclick="switchTab('anime')">Anime</button>
       <button class="tab-btn" id="tab-notify-btn" onclick="switchTab('notify')">Notifications</button>
+      <button class="tab-btn" id="tab-update-btn" onclick="switchTab('update')">App Update</button>
     </div>
 
     <!-- Movies Section -->
@@ -214,6 +215,34 @@
         <div class="notify-card">
           <h3 style="margin-bottom: 12px;">Sent notifications</h3>
           <div id="notify-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- App Update Section -->
+    <div id="section-update" style="display: none;">
+      <div class="notify-grid">
+        <div class="notify-card">
+          <h3 style="margin-bottom: 4px;">Publish app update</h3>
+          <p class="hint" style="margin-bottom: 16px;">Upload your new APK anywhere with a direct link (GitHub Release, Drive direct link, your server). Apps with a lower version code will show an "Update available" prompt and an item in the notification panel.</p>
+          <form id="update-form" onsubmit="publishUpdate(event)">
+            <label>Version code (must be higher than the installed one)</label>
+            <input type="number" id="upd-code" min="1" required placeholder="2">
+            <label>Version name</label>
+            <input type="text" id="upd-name" maxlength="30" placeholder="1.1">
+            <label>APK direct link</label>
+            <input type="url" id="upd-url" required placeholder="https://.../CastFlix.apk">
+            <label>What's new</label>
+            <textarea id="upd-log" rows="4" maxlength="1000" placeholder="- New home page&#10;- Local files from phone storage"></textarea>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="checkbox" id="upd-force" style="width:auto; margin:0;"> Force update (user cannot skip)
+            </label>
+            <button type="submit" style="width: 100%; margin-top: 12px;">Publish Update</button>
+          </form>
+        </div>
+        <div class="notify-card">
+          <h3 style="margin-bottom: 12px;">Current published version</h3>
+          <div id="update-current"></div>
         </div>
       </div>
     </div>
@@ -455,6 +484,7 @@
       renderMovies(movies);
       filterSeries();
       loadNotifications();
+      loadUpdate();
     }
 
     function isAnimeItem(x) { return x.type === 'anime' || x.isAnime === true; }
@@ -465,7 +495,8 @@
       document.getElementById('section-movies').style.display = tab === 'movies' ? 'block' : 'none';
       document.getElementById('section-series').style.display = showList ? 'block' : 'none';
       document.getElementById('section-notify').style.display = tab === 'notify' ? 'block' : 'none';
-      ['movies', 'series', 'anime', 'notify'].forEach(t =>
+      document.getElementById('section-update').style.display = tab === 'update' ? 'block' : 'none';
+      ['movies', 'series', 'anime', 'notify', 'update'].forEach(t =>
         document.getElementById(`tab-${t}-btn`).classList.toggle('active', tab === t));
       if (showList) {
         document.getElementById('add-series-btn').innerText = seriesMode === 'anime' ? '+ Add New Anime' : '+ Add New Web Series';
@@ -791,6 +822,52 @@
       if (!confirm('Delete this notification?')) return;
       await fetch(`/api/notifications/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
       loadNotifications();
+    }
+
+    // ---- App update ----
+    async function loadUpdate() {
+      let u = null;
+      try { u = await (await fetch('/api/update')).json(); } catch (_) {}
+      const box = document.getElementById('update-current');
+      if (!u || !u.versionCode) {
+        box.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">No update published yet.</p>';
+        return;
+      }
+      box.innerHTML = `
+        <div class="ep-title">Version ${esc(u.versionName || '')} (code ${esc(u.versionCode)})${u.force ? ' &middot; FORCED' : ''}</div>
+        <div style="font-size:12px; color: var(--text-muted); margin-top:6px; white-space:pre-wrap;">${esc(u.changelog || '')}</div>
+        <div class="ep-meta" style="word-break:break-all; margin-top:6px;">${esc(u.apkUrl)}</div>
+        <div class="ep-meta">${esc(new Date(u.createdAt).toLocaleString())}</div>
+        <button class="danger" style="margin-top:12px; padding: 6px 10px; font-size: 12px;" onclick="removeUpdate()">Stop offering this update</button>`;
+    }
+
+    async function publishUpdate(e) {
+      e.preventDefault();
+      const payload = {
+        versionCode: document.getElementById('upd-code').value,
+        versionName: document.getElementById('upd-name').value.trim(),
+        apkUrl: document.getElementById('upd-url').value.trim(),
+        changelog: document.getElementById('upd-log').value.trim(),
+        force: document.getElementById('upd-force').checked
+      };
+      const res = await fetch('/api/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        document.getElementById('update-form').reset();
+        await loadUpdate();
+        alert('Update published. Apps will see it the next time they open.');
+      } else {
+        alert(await errorMessage(res, 'Failed to publish update'));
+      }
+    }
+
+    async function removeUpdate() {
+      if (!confirm('Stop offering this update?')) return;
+      await fetch('/api/update', { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      loadUpdate();
     }
   </script>
 </body>
