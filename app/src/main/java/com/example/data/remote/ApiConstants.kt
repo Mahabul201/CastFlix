@@ -11,4 +11,7 @@ object ApiConstants {
   const val ROUTE_EPISODES = "/api/series/{id}/episodes"
   const val ROUTE_SEARCH = "/api/search"
   const val ROUTE_RANDOM = "/api/random"
+
+  // Public page that opens the newest APK (used when sharing the app)
+  const val SHARE_PATH = "/download"
 }
