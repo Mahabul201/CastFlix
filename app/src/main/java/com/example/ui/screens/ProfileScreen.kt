@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.example.ui.theme.Dimens
 import androidx.compose.material.icons.filled.History
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -115,12 +117,13 @@ fun ProfileScreen(
   LazyColumn(
     modifier = Modifier
       .fillMaxSize()
-      .padding(horizontal = 16.dp)
+      .statusBarsPadding()
+      .padding(horizontal = Dimens.ScreenHorizontal)
       .testTag("profile_screen"),
-    contentPadding = PaddingValues(bottom = 96.dp)
+    contentPadding = PaddingValues(bottom = Dimens.ScreenBottom)
   ) {
     item {
-      Spacer(modifier = Modifier.height(16.dp))
+      Spacer(modifier = Modifier.height(Dimens.ScreenTop))
       Text(
         text = "Profile",
         style = MaterialTheme.typography.headlineMedium,
