@@ -76,7 +76,9 @@ object AppNotifier {
 
     val fresh = list.filter { it.createdAt > lastSeen }.sortedBy { it.createdAt }
     if (fresh.isEmpty()) return 0
-    fresh.forEach { show(context, it) }
+    if (repository.getSettings().notificationsEnabled) {
+      fresh.forEach { show(context, it) }
+    }
     repository.setLastSeenNotificationAt(fresh.last().createdAt)
     return fresh.size
   }
