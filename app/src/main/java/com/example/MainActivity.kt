@@ -59,6 +59,9 @@ import com.example.data.model.ResumePoint
 import com.example.data.repository.DownloadManagerHelper
 import com.example.data.repository.StreamRepository
 import com.example.ui.components.DirectUrlStreamDialog
+import com.example.ui.components.UpdateDialog
+import com.example.data.model.AppUpdateInfo
+import com.example.data.update.AppUpdater
 import com.example.ui.components.SeeAllScreen
 import com.example.ui.player.VideoPlayerScreen
 import com.example.ui.screens.DownloadScreen
@@ -194,6 +197,45 @@ fun MainAppContent(
 
   val coroutineScope = rememberCoroutineScope()
 
+  // App update (published from the admin panel)
+  var updateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
+  var showUpdateDialog by remember { mutableStateOf(false) }
+  val appSettings by repository.settings.collectAsState()
+
+  androidx.compose.runtime.LaunchedEffect(Unit) {
+    if (!appSettings.autoCheckUpdate) return@LaunchedEffect
+    val latest = repository.fetchUpdateInfo()
+    if (AppUpdater.isNewer(latest)) {
+      updateInfo = latest
+      // A normal update is offered once per version; a forced one every launch
+      if (latest!!.force || latest.versionCode != repository.getSkippedUpdateCode()) {
+        showUpdateDialog = true
+      }
+    }
+  }
+
+  // Manual check from Settings
+  fun checkForUpdateNow() {
+    coroutineScope.launch {
+      val latest = repository.fetchUpdateInfo()
+      when {
+        latest == null -> android.widget.Toast.makeText(
+          appContext, "Couldn't reach the server", android.widget.Toast.LENGTH_SHORT
+        ).show()
+        AppUpdater.isNewer(latest) -> {
+          updateInfo = latest
+          showUpdateDialog = true
+        }
+        else -> {
+          updateInfo = null
+          android.widget.Toast.makeText(
+            appContext, "You're on the latest version", android.widget.Toast.LENGTH_SHORT
+          ).show()
+        }
+      }
+    }
+  }
+
   // Opens the watch page; it resumes from the saved position on its own
   fun openDetails(media: MediaItem, resume: ResumePoint? = null) {
     resumePoint = resume
@@ -265,8 +307,18 @@ fun MainAppContent(
     BackHandler { showNotifications = false }
     NotificationsScreen(
       repository = repository,
-      onBack = { showNotifications = false }
+      onBack = { showNotifications = false },
+      updateInfo = updateInfo,
+      onUpdateClick = { showUpdateDialog = true }
     )
+    if (showUpdateDialog) {
+      updateInfo?.let { info ->
+        UpdateDialog(info = info, onLater = {
+          repository.setSkippedUpdateCode(info.versionCode)
+          showUpdateDialog = false
+        })
+      }
+    }
     return
   }
 
@@ -365,6 +417,8 @@ fun MainAppContent(
             onOpenDetails = { media -> openDetails(media) },
             onOpenHistory = { showHistory = true },
             onOpenNotifications = { showNotifications = true },
+            onOpenSearch = { currentTab = NavigationTab.SEARCH },
+            updateAvailable = updateInfo != null,
             onSeeAllClick = { title, kind ->
               seeAllTitle = title
               seeAllKind = kind
@@ -384,19 +438,30 @@ fun MainAppContent(
             }
           )
           NavigationTab.SETTINGS -> SettingsScreen(
-            repository = repository
+            repository = repository,
+            updateAvailable = updateInfo != null,
+            onCheckUpdate = { checkForUpdateNow() }
           )
           NavigationTab.PROFILE -> ProfileScreen(
             repository = repository,
             onPlayMedia = { media, _ -> openDetails(media) },
-            onOpenHistory = { showHistory = true }
+            onOpenHistory = { showHistory = true },
+            onOpenNotifications = { showNotifications = true }
           )
         }
       }
     }
   }
-}
 
+  if (showUpdateDialog) {
+    updateInfo?.let { info ->
+      UpdateDialog(info = info, onLater = {
+        repository.setSkippedUpdateCode(info.versionCode)
+        showUpdateDialog = false
+      })
+    }
+  }
+}
 
 @Composable
 fun CrashReportScreen(report: String, onCopy: () -> Unit, onContinue: () -> Unit) {
