@@ -73,6 +73,19 @@ import com.example.data.repository.DownloadManagerHelper
 import com.example.data.repository.LocalVideoFile
 import com.example.data.repository.StreamRepository
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import com.example.data.repository.StorageInfo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,11 +102,40 @@ fun DownloadScreen(
   val downloadingItems = allDownloads.filter { it.status == "DOWNLOADING" || it.status == "PAUSED" }
   val downloadedItems = allDownloads.filter { it.status == "COMPLETED" }
 
-  var storageInfo by remember { mutableStateOf(downloadHelper.getStorageInfo()) }
-  var localVideos by remember { mutableStateOf(downloadHelper.getLocalFiles()) }
+  var storageInfo by remember { mutableStateOf<StorageInfo?>(null) }
+  var localVideos by remember { mutableStateOf<List<LocalVideoFile>>(emptyList()) }
+  var localLoading by remember { mutableStateOf(false) }
+  var hasPermission by remember { mutableStateOf(downloadHelper.hasLocalFilesPermission()) }
+  var refreshKey by remember { mutableIntStateOf(0) }
 
   val settings by repository.settings.collectAsState()
   var wifiOnly by remember { mutableStateOf(settings.wifiOnlyDownload) }
+
+  // Storage numbers (reads the disk, so off the main thread)
+  LaunchedEffect(allDownloads.size, downloadedItems.size) {
+    storageInfo = withContext(Dispatchers.IO) { downloadHelper.getStorageInfo() }
+  }
+
+  // Scan the phone for videos whenever the Local Files tab opens or is refreshed
+  LaunchedEffect(selectedTabIndex, refreshKey, hasPermission) {
+    if (selectedTabIndex == 2) {
+      localLoading = true
+      localVideos = withContext(Dispatchers.IO) { downloadHelper.getLocalFiles() }
+      localLoading = false
+    }
+  }
+
+  val permissionLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.RequestPermission()
+  ) { granted ->
+    hasPermission = granted
+    if (granted) refreshKey++
+  }
+  val storagePermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+    android.Manifest.permission.READ_MEDIA_VIDEO
+  } else {
+    android.Manifest.permission.READ_EXTERNAL_STORAGE
+  }
 
   // Activity Result for picking any local video file directly
   val videoPickerLauncher = rememberLauncherForActivityResult(
@@ -122,66 +164,72 @@ fun DownloadScreen(
       .statusBarsPadding()
       .testTag("download_screen")
   ) {
-    // Top Storage and Wi-Fi Control Card
+    // Compact storage + Wi-Fi strip
+    val info = storageInfo
     Card(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = Dimens.ScreenHorizontal, vertical = Dimens.ScreenTop),
-      shape = RoundedCornerShape(16.dp),
+        .padding(horizontal = Dimens.ScreenHorizontal, vertical = 8.dp),
+      shape = RoundedCornerShape(12.dp),
       colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-      Column(modifier = Modifier.padding(16.dp)) {
+      Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
         Row(
           modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically
         ) {
-          Column {
+          Icon(
+            Icons.Default.Storage,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp)
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Column(modifier = Modifier.weight(1f)) {
+            Text("Storage", fontWeight = FontWeight.Bold, fontSize = 13.sp)
             Text(
-              "Storage Overview",
-              style = MaterialTheme.typography.titleMedium,
-              fontWeight = FontWeight.Bold
-            )
-            val usedMb = downloadHelper.formatFileSize(storageInfo.appDownloadedBytes)
-            val freeGb = downloadHelper.formatFileSize(storageInfo.freeBytes)
-            Text(
-              "Downloads: $usedMb • Free: $freeGb",
-              fontSize = 12.sp,
-              color = Color.LightGray
+              text = if (info != null) {
+                "Downloads ${downloadHelper.formatFileSize(info.appDownloadedBytes)} • " +
+                  "Free ${downloadHelper.formatFileSize(info.freeBytes)}"
+              } else "Checking…",
+              fontSize = 11.sp,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis
             )
           }
-
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Wifi, contentDescription = "Wi-Fi Only", modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Switch(
-              checked = wifiOnly,
-              onCheckedChange = { checked ->
-                wifiOnly = checked
-                repository.updateSettings(settings.copy(wifiOnlyDownload = checked))
-              },
-              colors = SwitchDefaults.colors(
-                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-              )
+          Icon(
+            Icons.Default.Wifi,
+            contentDescription = "Wi-Fi only",
+            modifier = Modifier.size(16.dp),
+            tint = if (wifiOnly) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+          )
+          Switch(
+            checked = wifiOnly,
+            onCheckedChange = { checked ->
+              wifiOnly = checked
+              repository.updateSettings(settings.copy(wifiOnlyDownload = checked))
+            },
+            modifier = Modifier.scale(0.75f),
+            colors = SwitchDefaults.colors(
+              checkedThumbColor = MaterialTheme.colorScheme.primary,
+              checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
             )
-          }
+          )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        val progress = if (storageInfo.totalBytes > 0) {
-          (storageInfo.usedBytes.toFloat() / storageInfo.totalBytes.toFloat()).coerceIn(0f, 1f)
-        } else 0.5f
-
+        val progress = if (info != null && info.totalBytes > 0) {
+          (info.usedBytes.toFloat() / info.totalBytes.toFloat()).coerceIn(0f, 1f)
+        } else 0f
+        Spacer(modifier = Modifier.height(4.dp))
         LinearProgressIndicator(
           progress = { progress },
           modifier = Modifier
             .fillMaxWidth()
-            .height(6.dp)
-            .clip(RoundedCornerShape(3.dp)),
+            .height(4.dp)
+            .clip(RoundedCornerShape(2.dp)),
           color = MaterialTheme.colorScheme.primary,
-          trackColor = Color.DarkGray
+          trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
         )
       }
     }
@@ -237,11 +285,14 @@ fun DownloadScreen(
       )
       2 -> LocalFilesTab(
         files = localVideos,
-        onRefresh = { localVideos = downloadHelper.getLocalFiles() },
+        loading = localLoading,
+        hasPermission = hasPermission,
+        onRequestPermission = { permissionLauncher.launch(storagePermission) },
+        onRefresh = { refreshKey++ },
         onBrowseFile = { videoPickerLauncher.launch("video/*") },
         onPlay = { file ->
           val media = MediaItem(
-            id = "local_${file.name.hashCode()}",
+            id = "local_${file.path.hashCode()}",
             title = file.name,
             description = "Local media storage (${file.formattedSize})",
             poster = "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=800&q=80",
@@ -423,84 +474,160 @@ fun DownloadedTab(
 @Composable
 fun LocalFilesTab(
   files: List<LocalVideoFile>,
+  loading: Boolean,
+  hasPermission: Boolean,
+  onRequestPermission: () -> Unit,
   onRefresh: () -> Unit,
   onBrowseFile: () -> Unit,
   onPlay: (LocalVideoFile) -> Unit
 ) {
+  var query by remember { mutableStateOf("") }
+  val shown = remember(files, query) {
+    if (query.isBlank()) files else files.filter { it.name.contains(query.trim(), ignoreCase = true) }
+  }
+
   Column(
     modifier = Modifier
       .fillMaxSize()
       .padding(horizontal = Dimens.ScreenHorizontal)
   ) {
+    Spacer(modifier = Modifier.height(10.dp))
+
+    // Small filter field + actions
     Row(
       modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically
     ) {
-      Button(
-        onClick = onBrowseFile,
-        shape = RoundedCornerShape(24.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+      Row(
+        modifier = Modifier
+          .weight(1f)
+          .height(40.dp)
+          .clip(RoundedCornerShape(20.dp))
+          .background(MaterialTheme.colorScheme.surfaceVariant)
+          .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
       ) {
-        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+        Icon(
+          Icons.Default.Search,
+          contentDescription = null,
+          modifier = Modifier.size(18.dp),
+          tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(modifier = Modifier.width(8.dp))
-        Text("Browse Device Video")
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+          if (query.isEmpty()) {
+            Text("Search ${files.size} videos", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+          BasicTextField(
+            value = query,
+            onValueChange = { query = it },
+            singleLine = true,
+            textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier.fillMaxWidth()
+          )
+        }
       }
-
       IconButton(onClick = onRefresh) {
-        Icon(Icons.Default.Refresh, contentDescription = "Scan Storage")
+        Icon(Icons.Default.Refresh, contentDescription = "Scan storage")
+      }
+      IconButton(onClick = onBrowseFile) {
+        Icon(Icons.Default.FolderOpen, contentDescription = "Pick a video file")
       }
     }
 
-    Spacer(modifier = Modifier.height(12.dp))
+    Spacer(modifier = Modifier.height(8.dp))
 
-    LazyColumn(
-      verticalArrangement = Arrangement.spacedBy(10.dp),
-      contentPadding = PaddingValues(bottom = Dimens.ScreenBottom)
-    ) {
-      items(files) { file ->
-        Card(
-          shape = RoundedCornerShape(12.dp),
-          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    if (!hasPermission) {
+      Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        Column(
           modifier = Modifier
             .fillMaxWidth()
-            .clickable { onPlay(file) }
+            .padding(16.dp),
+          horizontalAlignment = Alignment.CenterHorizontally
         ) {
-          Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+          Icon(
+            Icons.Default.VideoLibrary,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(36.dp)
+          )
+          Spacer(modifier = Modifier.height(8.dp))
+          Text("Show all videos from your phone", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+          Text(
+            "Allow access to your videos to list everything stored on this phone. Files stay on your device.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(vertical = 6.dp)
+          )
+          Button(
+            onClick = onRequestPermission,
+            shape = RoundedCornerShape(20.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
           ) {
-            Surface(
-              shape = CircleShape,
-              color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-              modifier = Modifier.size(44.dp)
+            Text("Allow access", fontSize = 13.sp)
+          }
+        }
+      }
+      Spacer(modifier = Modifier.height(8.dp))
+    }
+
+    when {
+      loading && files.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+      }
+      shown.isEmpty() -> EmptyDownloadState(
+        message = if (query.isBlank()) "No videos found on this phone" else "No video matches \"$query\""
+      )
+      else -> LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(bottom = Dimens.ScreenBottom)
+      ) {
+        items(shown, key = { it.path }) { file ->
+          Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            modifier = Modifier
+              .fillMaxWidth()
+              .clickable { onPlay(file) }
+          ) {
+            Row(
+              modifier = Modifier.padding(10.dp),
+              verticalAlignment = Alignment.CenterVertically
             ) {
-              Box(contentAlignment = Alignment.Center) {
-                Icon(
-                  Icons.Default.VideoFile,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.primary
+              Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                modifier = Modifier.size(44.dp)
+              ) {
+                Box(contentAlignment = Alignment.Center) {
+                  Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                  )
+                }
+              }
+              Spacer(modifier = Modifier.width(12.dp))
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  file.name,
+                  fontWeight = FontWeight.SemiBold,
+                  fontSize = 13.sp,
+                  maxLines = 2,
+                  overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                  listOf(file.formattedSize, file.formattedDuration).filter { it.isNotBlank() }.joinToString(" • "),
+                  fontSize = 11.sp,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
               }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-              Text(
-                file.name,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-              )
-              Text(file.formattedSize, fontSize = 11.sp, color = Color.Gray)
-            }
-            Button(
-              onClick = { onPlay(file) },
-              shape = RoundedCornerShape(20.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-              contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-            ) {
-              Text("Play", fontSize = 11.sp)
             }
           }
         }
