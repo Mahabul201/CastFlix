@@ -82,6 +82,7 @@ let inMemoryMovies = [
     rating: 8.1,
     duration: "1h 35m",
     streamUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    qualities: [],
     createdAt: Date.now()
   }
 ];
@@ -124,6 +125,12 @@ let inMemoryEpisodes = [
 ];
 
 // --- Mongoose Schemas (if MONGODB_URL is provided) ---
+// Quality variants (480p / 720p / 1080p), each with its own direct link
+const QualitySchema = new mongoose.Schema({
+  label: { type: String, required: true },
+  url: { type: String, required: true }
+}, { _id: false });
+
 const MovieSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, default: "" },
@@ -133,7 +140,8 @@ const MovieSchema = new mongoose.Schema({
   year: { type: Number, default: 2025 },
   rating: { type: Number, default: 8.5 },
   duration: { type: String, default: "120m" },
-  streamUrl: { type: String, required: true },
+  streamUrl: { type: String, default: "" },
+  qualities: { type: [QualitySchema], default: [] },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -154,9 +162,52 @@ const EpisodeSchema = new mongoose.Schema({
   episodeNumber: { type: Number, default: 1 },
   title: { type: String, required: true },
   thumbnail: { type: String, default: "" },
-  streamUrl: { type: String, required: true },
+  streamUrl: { type: String, default: "" },
+  qualities: { type: [QualitySchema], default: [] },
   duration: { type: String, default: "45m" }
 });
+
+
+// --- Quality helpers ---
+const QUALITY_ORDER = ['480p', '720p', '1080p'];
+
+// Keep only valid {label,url} pairs, sorted 480p -> 1080p
+function cleanQualities(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const q of list) {
+    const label = q && typeof q.label === 'string' ? q.label.trim() : '';
+    const url = q && typeof q.url === 'string' ? q.url.trim() : '';
+    if (!label || !url || seen.has(label)) continue;
+    seen.add(label);
+    out.push({ label, url });
+  }
+  const rank = (l) => { const i = QUALITY_ORDER.indexOf(l); return i === -1 ? 99 : i; };
+  return out.sort((a, b) => rank(a.label) - rank(b.label));
+}
+
+// Default link = 720p, else 1080p, else the first one available
+function defaultStreamUrl(qualities) {
+  const by = (l) => (qualities.find(q => q.label === l) || {}).url;
+  return by('720p') || by('1080p') || by('480p') || (qualities[0] && qualities[0].url) || '';
+}
+
+// Normalise a movie/episode body. Returns an error string if no link at all.
+function prepareVideoBody(data, partial) {
+  if (data.qualities !== undefined || !partial) {
+    data.qualities = cleanQualities(data.qualities);
+  }
+  if (typeof data.streamUrl === 'string') data.streamUrl = data.streamUrl.trim();
+  if (data.qualities && data.qualities.length) {
+    // When qualities are provided the default link always follows them
+    data.streamUrl = defaultStreamUrl(data.qualities);
+  }
+  if (!partial && !data.streamUrl) {
+    return 'Add at least one video link (480p / 720p / 1080p)';
+  }
+  return null;
+}
 
 let MovieModel, SeriesModel, EpisodeModel;
 
@@ -342,6 +393,8 @@ app.get('/api/random', async (req, res) => {
 app.post('/api/movies', authMiddleware, async (req, res) => {
   try {
     const data = req.body;
+    const bad = prepareVideoBody(data, false);
+    if (bad) return res.status(400).json({ error: bad });
     data.id = "mov_" + Date.now();
     if (isMongoConnected) {
       const created = await MovieModel.create(data);
@@ -358,6 +411,8 @@ app.post('/api/movies', authMiddleware, async (req, res) => {
 app.put('/api/movies/:id', authMiddleware, async (req, res) => {
   try {
     const id = req.params.id;
+    const bad = prepareVideoBody(req.body, true);
+    if (bad) return res.status(400).json({ error: bad });
     if (isMongoConnected) {
       const updated = await MovieModel.findByIdAndUpdate(id, req.body, { new: true });
       return res.json(updated);
@@ -409,6 +464,8 @@ app.post('/api/series', authMiddleware, async (req, res) => {
 app.post('/api/episodes', authMiddleware, async (req, res) => {
   try {
     const data = req.body;
+    const bad = prepareVideoBody(data, false);
+    if (bad) return res.status(400).json({ error: bad });
     data.id = "ep_" + Date.now();
     if (isMongoConnected) {
       const created = await EpisodeModel.create(data);
@@ -416,6 +473,40 @@ app.post('/api/episodes', authMiddleware, async (req, res) => {
     }
     inMemoryEpisodes.push(data);
     res.status(201).json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Episode (e.g. add / change quality links)
+app.put('/api/episodes/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const bad = prepareVideoBody(req.body, true);
+    if (bad) return res.status(400).json({ error: bad });
+    if (isMongoConnected) {
+      const updated = await EpisodeModel.findByIdAndUpdate(id, req.body, { new: true });
+      return updated ? res.json(updated) : res.status(404).json({ error: "Episode not found" });
+    }
+    const idx = inMemoryEpisodes.findIndex(e => e.id === id);
+    if (idx === -1) return res.status(404).json({ error: "Episode not found" });
+    inMemoryEpisodes[idx] = { ...inMemoryEpisodes[idx], ...req.body };
+    res.json(inMemoryEpisodes[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete Episode
+app.delete('/api/episodes/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (isMongoConnected) {
+      await EpisodeModel.findByIdAndDelete(id);
+      return res.json({ success: true });
+    }
+    inMemoryEpisodes = inMemoryEpisodes.filter(e => e.id !== id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
