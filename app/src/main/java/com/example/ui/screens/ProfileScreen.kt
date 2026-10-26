@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.material.icons.filled.History
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -88,7 +89,8 @@ val AVATAR_OPTIONS = listOf(
 @Composable
 fun ProfileScreen(
   repository: StreamRepository,
-  onPlayMedia: (MediaItem, Long) -> Unit
+  onPlayMedia: (MediaItem, Long) -> Unit,
+  onOpenHistory: () -> Unit = {}
 ) {
   val context = LocalContext.current
   val profile by repository.userProfile.collectAsState()
@@ -272,11 +274,23 @@ fun ProfileScreen(
           ) {
             Icon(Icons.Default.CloudDone, contentDescription = null, tint = Color(0xFF00E676), modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text("Synced with Koyeb Backend & Local DB", fontSize = 11.sp, color = Color.LightGray)
+            Text("Saved on this device", fontSize = 11.sp, color = Color.LightGray)
           }
         }
       }
       Spacer(modifier = Modifier.height(20.dp))
+    }
+
+    item {
+      androidx.compose.material3.OutlinedButton(
+        onClick = onOpenHistory,
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        Icon(androidx.compose.material.icons.Icons.Default.History, contentDescription = null)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("Watch History")
+      }
+      Spacer(modifier = Modifier.height(16.dp))
     }
 
     // Watch Stats Grid
