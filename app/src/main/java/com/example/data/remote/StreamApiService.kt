@@ -1,6 +1,7 @@
 package com.example.data.remote
 
 import com.example.data.model.AppNotification
+import com.example.data.model.AppUpdateInfo
 import com.example.data.model.Episode
 import com.example.data.model.HomeResponse
 import com.example.data.model.MediaItem
@@ -39,6 +40,9 @@ interface StreamApiService {
 
   @GET("api/notifications")
   suspend fun getNotifications(): List<AppNotification>
+
+  @GET("api/update")
+  suspend fun getUpdate(): AppUpdateInfo
 
   companion object {
     fun create(baseUrl: String = ApiConstants.DEFAULT_KOYEB_FQDN): StreamApiService {
