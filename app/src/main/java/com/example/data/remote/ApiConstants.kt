@@ -2,7 +2,7 @@ package com.example.data.remote
 
 object ApiConstants {
   // Koyeb FQDN configurable here:
-  const val DEFAULT_KOYEB_FQDN = "https://url-stream-api.koyeb.app"
+  const val DEFAULT_KOYEB_FQDN = "https://gastric-rasla-evamusic-01582837.koyeb.app"
 
   // Base API routes
   const val ROUTE_HOME = "/api/home"
