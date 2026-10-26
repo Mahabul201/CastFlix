@@ -161,6 +161,8 @@ fun MainAppContent(
   var activePlayerEpisode by remember { mutableStateOf<Episode?>(null) }
 
   var showDirectUrlDialog by remember { mutableStateOf(false) }
+  var detailMedia by remember { mutableStateOf<MediaItem?>(null) }
+  var showHistory by remember { mutableStateOf(false) }
   var seeAllTitle by remember { mutableStateOf<String?>(null) }
   var seeAllIsSeries by remember { mutableStateOf(false) }
 
@@ -186,6 +188,38 @@ fun MainAppContent(
     return
   }
 
+  // History page
+  if (showHistory) {
+    BackHandler { showHistory = false }
+    com.example.ui.screens.HistoryScreen(
+      repository = repository,
+      onBack = { showHistory = false },
+      onPlay = { media, episode, pos ->
+        activePlayerMedia = media
+        activePlayerPosition = pos
+        activePlayerEpisode = episode
+      }
+    )
+    return
+  }
+
+  // Movie / series details page
+  if (detailMedia != null) {
+    BackHandler { detailMedia = null }
+    com.example.ui.screens.DetailsScreen(
+      media = detailMedia!!,
+      repository = repository,
+      downloadHelper = downloadHelper,
+      onBack = { detailMedia = null },
+      onPlay = { media, episode, pos ->
+        activePlayerMedia = media
+        activePlayerPosition = pos
+        activePlayerEpisode = episode
+      }
+    )
+    return
+  }
+
   // See All Full View Mode
   if (seeAllTitle != null) {
     BackHandler { seeAllTitle = null }
@@ -197,11 +231,7 @@ fun MainAppContent(
       title = seeAllTitle!!,
       items = items,
       onBack = { seeAllTitle = null },
-      onPlayMedia = { media ->
-        activePlayerMedia = media
-        activePlayerPosition = 0L
-        activePlayerEpisode = media.episodes.firstOrNull()
-      }
+      onPlayMedia = { media -> detailMedia = media }
     )
     return
   }
@@ -234,7 +264,9 @@ fun MainAppContent(
             label = {
               Text(
                 text = tab.title,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
+                maxLines = 1,
+                softWrap = false,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
               )
             },
@@ -268,7 +300,8 @@ fun MainAppContent(
               activePlayerPosition = pos
               activePlayerEpisode = media.episodes.firstOrNull()
             },
-            onOpenDirectUrlDialog = { showDirectUrlDialog = true },
+            onOpenDetails = { media -> detailMedia = media },
+            onOpenHistory = { showHistory = true },
             onSeeAllClick = { title, isSeries ->
               seeAllTitle = title
               seeAllIsSeries = isSeries
@@ -277,9 +310,13 @@ fun MainAppContent(
           NavigationTab.SEARCH -> SearchScreen(
             repository = repository,
             onPlayMedia = { media, pos ->
-              activePlayerMedia = media
-              activePlayerPosition = pos
-              activePlayerEpisode = media.episodes.firstOrNull()
+              if (pos == 0L) {
+                detailMedia = media
+              } else {
+                activePlayerMedia = media
+                activePlayerPosition = pos
+                activePlayerEpisode = media.episodes.firstOrNull()
+              }
             }
           )
           NavigationTab.DOWNLOAD -> DownloadScreen(
@@ -297,25 +334,18 @@ fun MainAppContent(
           NavigationTab.PROFILE -> ProfileScreen(
             repository = repository,
             onPlayMedia = { media, pos ->
-              activePlayerMedia = media
-              activePlayerPosition = pos
-              activePlayerEpisode = media.episodes.firstOrNull()
-            }
+              if (pos == 0L) {
+                detailMedia = media
+              } else {
+                activePlayerMedia = media
+                activePlayerPosition = pos
+                activePlayerEpisode = media.episodes.firstOrNull()
+              }
+            },
+            onOpenHistory = { showHistory = true }
           )
         }
       }
-    }
-
-    // Direct URL Dialog
-    if (showDirectUrlDialog) {
-      DirectUrlStreamDialog(
-        onDismiss = { showDirectUrlDialog = false },
-        onPlayUrl = { media ->
-          activePlayerMedia = media
-          activePlayerPosition = 0L
-          activePlayerEpisode = null
-        }
-      )
     }
   }
 }
