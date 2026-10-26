@@ -153,6 +153,16 @@ const SeriesSchema = new mongoose.Schema({
   category: { type: String, default: "Sci-Fi" },
   year: { type: Number, default: 2025 },
   rating: { type: Number, default: 8.8 },
+  type: { type: String, enum: ['series', 'anime'], default: 'series' },
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Notifications sent from the admin panel to the app
+const NotificationSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  imageUrl: { type: String, default: "" },
+  link: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -209,7 +219,8 @@ function prepareVideoBody(data, partial) {
   return null;
 }
 
-let MovieModel, SeriesModel, EpisodeModel;
+let MovieModel, SeriesModel, EpisodeModel, NotificationModel;
+let inMemoryNotifications = [];
 
 if (MONGODB_URL) {
   mongoose.connect(MONGODB_URL)
@@ -219,6 +230,7 @@ if (MONGODB_URL) {
       MovieModel = mongoose.model('Movie', MovieSchema);
       SeriesModel = mongoose.model('Series', SeriesSchema);
       EpisodeModel = mongoose.model('Episode', EpisodeSchema);
+      NotificationModel = mongoose.model('Notification', NotificationSchema);
 
       // Seed if empty
       const count = await MovieModel.countDocuments();
@@ -239,6 +251,13 @@ if (MONGODB_URL) {
     });
 } else {
   console.log('No MONGODB_URL specified. Running with in-memory persistence.');
+}
+
+// Marks a series document for the app: always isSeries, isAnime when type is 'anime'
+function decorateSeries(ser) {
+  ser.isSeries = true;
+  ser.isAnime = ser.type === 'anime';
+  return ser;
 }
 
 // --- JWT Auth Middleware for Admin ---
@@ -277,7 +296,7 @@ app.get('/api/home', async (req, res) => {
 
     // Attach episodes to series
     for (const ser of series) {
-      ser.isSeries = true;
+      decorateSeries(ser);
       const sId = ser._id ? ser._id.toString() : ser.id;
       if (isMongoConnected) {
         ser.episodes = await EpisodeModel.find({ seriesId: sId }).lean();
@@ -286,6 +305,8 @@ app.get('/api/home', async (req, res) => {
       }
     }
 
+    const anime = series.filter(s => s.isAnime);
+    const webSeries = series.filter(s => !s.isAnime);
     const featured = [...series, ...movies].slice(0, 4);
     const recentlyAdded = [...movies, ...series].slice(0, 6);
 
@@ -293,7 +314,8 @@ app.get('/api/home', async (req, res) => {
       featured,
       recentlyAdded,
       movies,
-      series,
+      series: webSeries,
+      anime,
       categories: ["All", "Action", "Sci-Fi", "Comedy", "Drama", "Thriller", "Romance"]
     });
   } catch (err) {
@@ -316,7 +338,7 @@ app.get('/api/series', async (req, res) => {
   try {
     const series = isMongoConnected ? await SeriesModel.find().lean() : inMemorySeries;
     for (const ser of series) {
-      ser.isSeries = true;
+      decorateSeries(ser);
       const sId = ser._id ? ser._id.toString() : ser.id;
       if (isMongoConnected) {
         ser.episodes = await EpisodeModel.find({ seriesId: sId }).lean();
@@ -351,11 +373,12 @@ app.get('/api/search', async (req, res) => {
 
     let movies = isMongoConnected ? await MovieModel.find().lean() : inMemoryMovies;
     let series = isMongoConnected ? await SeriesModel.find().lean() : inMemorySeries;
-    series.forEach(s => s.isSeries = true);
+    series.forEach(decorateSeries);
 
     let all = [];
     if (filter === 'movies') all = movies;
-    else if (filter === 'web series' || filter === 'series') all = series;
+    else if (filter === 'anime') all = series.filter(s => s.isAnime);
+    else if (filter === 'web series' || filter === 'series') all = series.filter(s => !s.isAnime);
     else all = [...movies, ...series];
 
     if (!query) {
@@ -379,7 +402,7 @@ app.get('/api/random', async (req, res) => {
   try {
     let movies = isMongoConnected ? await MovieModel.find().lean() : inMemoryMovies;
     let series = isMongoConnected ? await SeriesModel.find().lean() : inMemorySeries;
-    series.forEach(s => s.isSeries = true);
+    series.forEach(decorateSeries);
     const combined = [...movies, ...series].sort(() => 0.5 - Math.random());
     res.json(combined.slice(0, 6));
   } catch (err) {
@@ -449,6 +472,7 @@ app.post('/api/series', authMiddleware, async (req, res) => {
     const data = req.body;
     data.id = "ser_" + Date.now();
     data.isSeries = true;
+    data.type = data.type === 'anime' ? 'anime' : 'series';
     if (isMongoConnected) {
       const created = await SeriesModel.create(data);
       return res.status(201).json(created);
@@ -523,6 +547,61 @@ app.delete('/api/series/:id', authMiddleware, async (req, res) => {
     }
     inMemorySeries = inMemorySeries.filter(s => s.id !== id);
     inMemoryEpisodes = inMemoryEpisodes.filter(e => e.seriesId !== id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Notifications ---
+// Public: the app reads the latest notifications (newest first)
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+    const list = isMongoConnected
+      ? await NotificationModel.find().sort({ createdAt: -1 }).limit(limit).lean()
+      : inMemoryNotifications.slice(0, limit);
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: send a notification to every app user
+app.post('/api/notifications', authMiddleware, async (req, res) => {
+  try {
+    const title = String(req.body.title || '').trim();
+    const message = String(req.body.message || '').trim();
+    if (!title || !message) {
+      return res.status(400).json({ error: "Title and message are required" });
+    }
+    const data = {
+      title: title.slice(0, 100),
+      message: message.slice(0, 500),
+      imageUrl: String(req.body.imageUrl || '').trim(),
+      link: String(req.body.link || '').trim()
+    };
+    if (isMongoConnected) {
+      const created = await NotificationModel.create(data);
+      return res.status(201).json(created);
+    }
+    const item = { ...data, id: "ntf_" + Date.now(), createdAt: Date.now() };
+    inMemoryNotifications.unshift(item);
+    res.status(201).json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: remove a notification
+app.delete('/api/notifications/:id', authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (isMongoConnected) {
+      await NotificationModel.findByIdAndDelete(id);
+      return res.json({ success: true });
+    }
+    inMemoryNotifications = inMemoryNotifications.filter(n => n.id !== id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
