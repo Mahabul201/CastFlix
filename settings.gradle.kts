@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "URL Stream"
+rootProject.name = "CastFlix"
 
 include(":app")
