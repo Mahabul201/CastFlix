@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -82,10 +83,16 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.data.model.Episode
 import com.example.data.model.MediaItem
+import com.example.data.model.ResumePoint
+import com.example.data.model.VideoQuality
+import com.example.data.model.buildQualityOptions
+import com.example.data.model.hasQualityChoice
+import com.example.data.model.pickQuality
+import com.example.ui.components.QualityPickerDialog
+import com.example.ui.theme.Dimens
 import com.example.data.repository.DownloadManagerHelper
 import com.example.data.repository.StreamRepository
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.max
 
@@ -101,7 +108,8 @@ fun DetailsScreen(
   onBack: () -> Unit,
   onPlay: (MediaItem, Episode?, Long) -> Unit,
   onOpenMedia: (MediaItem) -> Unit = {},
-  onSaveProgress: (MediaItem, Long, Long, Episode?) -> Unit = { _, _, _, _ -> }
+  onSaveProgress: (MediaItem, Long, Long, Episode?) -> Unit = { _, _, _, _ -> },
+  resume: ResumePoint? = null
 ) {
   // key() makes a fresh player + state whenever another thumbnail is opened from "For you"
   key(media.id) {
@@ -112,7 +120,8 @@ fun DetailsScreen(
       onBack = onBack,
       onPlay = onPlay,
       onOpenMedia = onOpenMedia,
-      onSaveProgress = onSaveProgress
+      onSaveProgress = onSaveProgress,
+      resume = resume
     )
   }
 }
@@ -125,7 +134,8 @@ private fun WatchPage(
   onBack: () -> Unit,
   onPlay: (MediaItem, Episode?, Long) -> Unit,
   onOpenMedia: (MediaItem) -> Unit,
-  onSaveProgress: (MediaItem, Long, Long, Episode?) -> Unit
+  onSaveProgress: (MediaItem, Long, Long, Episode?) -> Unit,
+  resume: ResumePoint?
 ) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
@@ -146,18 +156,35 @@ private fun WatchPage(
       if (loaded.isNotEmpty()) eps = loaded
     }
     episodes = eps
-    val last = repository.watchHistory.first().firstOrNull { it.mediaId == media.id }
-    val pos = if (last != null && last.lastPositionMs > 5000L) last.lastPositionMs else 0L
+    // Resume point: an explicit one (history tap / back from fullscreen) wins over the database
+    val explicit = resume?.takeIf { it.mediaId == media.id }
+    val saved = if (explicit == null) repository.getLastProgress(media.id) else null
+    val lastSeason = explicit?.season ?: saved?.season
+    val lastEpisodeNo = explicit?.episodeNumber ?: saved?.episodeNumber
+    val lastDur = explicit?.durationMs ?: saved?.durationMs ?: 0L
+    val rawPos = explicit?.positionMs ?: saved?.lastPositionMs ?: 0L
+    val hasLast = explicit != null || saved != null
+    // Almost finished -> start over (or move to the next episode below)
+    val finished = lastDur > 0L && rawPos >= (lastDur * 0.95).toLong()
+    val lastPos = if (rawPos <= 5000L || finished) 0L else rawPos
+
     if (current.isSeries) {
-      val resumeEp = if (last != null) {
-        eps.firstOrNull { it.season == last.season && it.episodeNumber == last.episodeNumber }
+      val lastEp = if (hasLast) {
+        eps.firstOrNull { it.season == lastSeason && it.episodeNumber == lastEpisodeNo }
       } else {
         null
       }
-      currentEpisode = resumeEp ?: eps.firstOrNull()
-      startPositionMs = if (resumeEp != null) pos else 0L
+      val nextEp = if (lastEp != null && finished) {
+        eps.firstOrNull { it.season == lastEp.season && it.episodeNumber == lastEp.episodeNumber + 1 }
+      } else {
+        null
+      }
+      val target = nextEp ?: lastEp ?: eps.firstOrNull()
+      currentEpisode = target
+      // Only continue mid-episode when we are still on the episode that was being watched
+      startPositionMs = if (target != null && target == lastEp) lastPos else 0L
     } else {
-      startPositionMs = pos
+      startPositionMs = lastPos
     }
   }
 
@@ -170,7 +197,21 @@ private fun WatchPage(
     (allMovies + allSeries).filter { it.id != media.id }.shuffled()
   }
 
-  val streamUrl = if (current.isSeries) currentEpisode?.streamUrl.orEmpty() else current.streamUrl
+  // ---- Quality (480p / 720p / 1080p) ----
+  var selectedQuality by remember { mutableStateOf(repository.getPreferredQuality()) }
+  var showQualityDialog by remember { mutableStateOf(false) }
+  var showDownloadQualityDialog by remember { mutableStateOf(false) }
+
+  val qualityOptions = remember(current, currentEpisode) {
+    val ep = currentEpisode
+    if (current.isSeries) {
+      buildQualityOptions(ep?.qualities.orEmpty(), ep?.streamUrl.orEmpty())
+    } else {
+      buildQualityOptions(current.qualities, current.streamUrl)
+    }
+  }
+  val activeQuality = pickQuality(qualityOptions, selectedQuality)
+  val streamUrl = activeQuality?.url.orEmpty()
   val playable = current.copy(episodes = episodes)
 
   // ---- Player ----
@@ -186,21 +227,42 @@ private fun WatchPage(
   var duration by remember { mutableLongStateOf(0L) }
   var seeking by remember { mutableStateOf(false) }
   var seekValue by remember { mutableStateOf(0f) }
+  val latestMedia by rememberUpdatedState(playable)
+  val latestEpisode by rememberUpdatedState(currentEpisode)
   var loadedUrl by remember { mutableStateOf("") }
+  var loadedKey by remember { mutableStateOf("") }
   var resumeApplied by remember { mutableStateOf(false) }
 
   LaunchedEffect(streamUrl, startPositionMs) {
     val start = startPositionMs
     if (start != null && streamUrl.isNotBlank() && streamUrl != loadedUrl) {
-      loadedUrl = streamUrl
-      errorText = null
-      exoPlayer.setMediaItem(Media3Item.fromUri(Uri.parse(streamUrl)))
-      exoPlayer.prepare()
-      if (!resumeApplied && start > 0L) {
-        exoPlayer.seekTo(start)
+      val contentKey = currentEpisode?.id ?: current.id
+      val seekTo = when {
+        // Same title, different quality: keep the current position
+        loadedKey == contentKey && loadedUrl.isNotBlank() -> max(0L, exoPlayer.currentPosition)
+        // First load: continue where the user stopped
+        !resumeApplied -> start
+        // New episode
+        else -> 0L
       }
+      loadedUrl = streamUrl
+      loadedKey = contentKey
+      errorText = null
+      exoPlayer.setMediaItem(Media3Item.fromUri(Uri.parse(streamUrl)), seekTo)
+      exoPlayer.prepare()
       resumeApplied = true
       exoPlayer.play()
+    }
+  }
+
+  // Save progress every 10s while playing, so nothing is lost if the app is closed
+  LaunchedEffect(exoPlayer) {
+    while (true) {
+      delay(10_000)
+      val pos = exoPlayer.currentPosition
+      if (exoPlayer.isPlaying && pos > 3000L) {
+        onSaveProgress(latestMedia, pos, max(0L, exoPlayer.duration), latestEpisode)
+      }
     }
   }
 
@@ -214,9 +276,6 @@ private fun WatchPage(
       delay(500)
     }
   }
-
-  val latestMedia by rememberUpdatedState(playable)
-  val latestEpisode by rememberUpdatedState(currentEpisode)
 
   DisposableEffect(Unit) {
     val listener = object : Player.Listener {
@@ -283,13 +342,24 @@ private fun WatchPage(
     else -> "Retry"
   }
 
+  fun downloadWithQuality(option: VideoQuality?) {
+    val ep = currentEpisode
+    val label = option?.label?.takeIf { hasQualityChoice(qualityOptions) }
+    val url = option?.url ?: streamUrl
+    val suffix = if (label != null) " ($label)" else ""
+    if (current.isSeries && ep != null) {
+      startDownloadFor(current.copy(id = ep.id, title = "${current.title} - ${ep.title}$suffix"), url)
+    } else {
+      startDownloadFor(current.copy(title = "${current.title}$suffix"), url)
+    }
+  }
+
   fun onDownloadClick() {
     if (activeDownload == null || activeDownload.status == "FAILED") {
-      val ep = currentEpisode
-      if (current.isSeries && ep != null) {
-        startDownloadFor(current.copy(id = ep.id, title = "${current.title} - ${ep.title}"), ep.streamUrl)
+      if (hasQualityChoice(qualityOptions)) {
+        showDownloadQualityDialog = true
       } else {
-        startDownloadFor(current, current.streamUrl)
+        downloadWithQuality(qualityOptions.firstOrNull())
       }
     } else if (activeDownload.status == "COMPLETED") {
       Toast.makeText(context, "Already downloaded. Open the Download tab to play it.", Toast.LENGTH_SHORT).show()
@@ -432,6 +502,21 @@ private fun WatchPage(
             softWrap = false,
             modifier = Modifier.padding(horizontal = 4.dp)
           )
+          if (hasQualityChoice(qualityOptions) && activeQuality != null) {
+            Text(
+              text = activeQuality.label,
+              color = Color.White,
+              fontSize = 12.sp,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1,
+              softWrap = false,
+              modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.White.copy(alpha = 0.2f))
+                .clickable { showQualityDialog = true }
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+          }
           IconButton(
             onClick = {
               val ep = if (current.isSeries) currentEpisode else null
@@ -447,10 +532,17 @@ private fun WatchPage(
     // Everything below the player scrolls
     LazyVerticalGrid(
       columns = GridCells.Fixed(3),
-      modifier = Modifier.fillMaxSize(),
-      contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 24.dp),
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
-      verticalArrangement = Arrangement.spacedBy(10.dp)
+      modifier = Modifier
+        .fillMaxSize()
+        .navigationBarsPadding(),
+      contentPadding = PaddingValues(
+        start = Dimens.ScreenHorizontal,
+        end = Dimens.ScreenHorizontal,
+        top = Dimens.Section,
+        bottom = Dimens.ScreenBottom
+      ),
+      horizontalArrangement = Arrangement.spacedBy(Dimens.GridGap),
+      verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
       // Title + info
       item(span = { GridItemSpan(maxLineSpan) }) {
@@ -642,6 +734,33 @@ private fun WatchPage(
         }
       }
     }
+  }
+
+  if (showQualityDialog) {
+    QualityPickerDialog(
+      title = "Video quality",
+      options = qualityOptions,
+      selectedLabel = activeQuality?.label,
+      onSelect = { option ->
+        selectedQuality = option.label
+        repository.setPreferredQuality(option.label)
+        showQualityDialog = false
+      },
+      onDismiss = { showQualityDialog = false }
+    )
+  }
+
+  if (showDownloadQualityDialog) {
+    QualityPickerDialog(
+      title = "Download quality",
+      options = qualityOptions,
+      selectedLabel = activeQuality?.label,
+      onSelect = { option ->
+        showDownloadQualityDialog = false
+        downloadWithQuality(option)
+      },
+      onDismiss = { showDownloadQualityDialog = false }
+    )
   }
 }
 
