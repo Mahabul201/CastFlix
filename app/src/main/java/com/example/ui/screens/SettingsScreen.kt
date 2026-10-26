@@ -400,63 +400,6 @@ fun SettingsScreen(
       Spacer(modifier = Modifier.height(20.dp))
     }
 
-    // 6. BACKEND API CONFIG
-    item {
-      SettingsCategoryHeader(title = "Backend Server (Koyeb / Cloud)", icon = Icons.Default.Dns)
-      Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth()
-      ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-          Text(
-            text = "Koyeb FQDN / REST Base URL",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp
-          )
-          Spacer(modifier = Modifier.height(4.dp))
-          Text(
-            text = settings.backendUrl,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Medium
-          )
-          Spacer(modifier = Modifier.height(12.dp))
-          Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(
-              onClick = {
-                backendInput = settings.backendUrl
-                showBackendDialog = true
-              },
-              shape = RoundedCornerShape(20.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-            ) {
-              Text("Change URL", fontSize = 12.sp)
-            }
-
-            Button(
-              onClick = {
-                coroutineScope.launch {
-                  Toast.makeText(context, "Testing connection to ${settings.backendUrl}...", Toast.LENGTH_SHORT).show()
-                  try {
-                    repository.fetchHomeData()
-                    Toast.makeText(context, "Connected successfully!", Toast.LENGTH_SHORT).show()
-                  } catch (e: Exception) {
-                    Toast.makeText(context, "Falling back to offline catalog", Toast.LENGTH_SHORT).show()
-                  }
-                }
-              },
-              shape = RoundedCornerShape(20.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-              Text("Test Sync", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-            }
-          }
-        }
-      }
-      Spacer(modifier = Modifier.height(20.dp))
-    }
-
     // 7. ABOUT
     item {
       SettingsCategoryHeader(title = "About", icon = Icons.Default.Info)
@@ -471,27 +414,11 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween
           ) {
             Text("App Version", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text("v1.0.0 (Build 2026.10)", color = Color.Gray, fontSize = 13.sp)
-          }
-          Spacer(modifier = Modifier.height(12.dp))
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Column {
-              Text("Check for Updates", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-              Text("You are on the latest official release", fontSize = 12.sp, color = Color.Gray)
-            }
-            TextButton(onClick = {
-              Toast.makeText(context, "URL Stream is up to date!", Toast.LENGTH_SHORT).show()
-            }) {
-              Text("Check", color = MaterialTheme.colorScheme.primary)
-            }
+            Text("1.0", color = Color.Gray, fontSize = 13.sp)
           }
           Spacer(modifier = Modifier.height(8.dp))
           Text(
-            text = "URL Stream plays direct media URLs (m3u8, mp4, mkv) and connects with your Koyeb Node.js backend & MongoDB database.",
+            text = "CastFlix plays direct media URLs (m3u8, mp4, mkv).",
             fontSize = 11.sp,
             color = Color.LightGray
           )
@@ -547,41 +474,6 @@ fun SettingsScreen(
       },
       dismissButton = {
         TextButton(onClick = { showClearCacheDialog = false }) {
-          Text("Cancel")
-        }
-      }
-    )
-  }
-
-  if (showBackendDialog) {
-    AlertDialog(
-      onDismissRequest = { showBackendDialog = false },
-      title = { Text("Change Backend Server URL") },
-      text = {
-        Column {
-          Text("Enter your Koyeb FQDN (e.g. https://your-app.koyeb.app):", fontSize = 12.sp, color = Color.Gray)
-          Spacer(modifier = Modifier.height(8.dp))
-          OutlinedTextField(
-            value = backendInput,
-            onValueChange = { backendInput = it },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-          )
-        }
-      },
-      confirmButton = {
-        Button(
-          onClick = {
-            repository.updateSettings(settings.copy(backendUrl = backendInput.trim()))
-            showBackendDialog = false
-            Toast.makeText(context, "Backend URL updated!", Toast.LENGTH_SHORT).show()
-          }
-        ) {
-          Text("Save")
-        }
-      },
-      dismissButton = {
-        TextButton(onClick = { showBackendDialog = false }) {
           Text("Cancel")
         }
       }
