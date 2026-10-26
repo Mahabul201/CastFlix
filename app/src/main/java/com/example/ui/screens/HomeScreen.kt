@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.theme.Dimens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -97,7 +98,7 @@ fun HomeScreen(
       modifier = Modifier
         .fillMaxSize()
         .testTag("home_screen_scroll"),
-      contentPadding = PaddingValues(bottom = 96.dp)
+      contentPadding = PaddingValues(bottom = Dimens.ScreenBottom)
     ) {
       // 1. TOP BANNER CAROUSEL
       item {
@@ -155,7 +156,7 @@ fun HomeScreen(
                 Column(
                   modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(horizontal = 20.dp, vertical = 20.dp)
+                    .padding(horizontal = Dimens.ScreenHorizontal, vertical = 20.dp)
                 ) {
                   Surface(
                     shape = RoundedCornerShape(4.dp),
@@ -243,7 +244,7 @@ fun HomeScreen(
             Row(
               modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 24.dp),
+                .padding(end = Dimens.ScreenHorizontal, bottom = 24.dp),
               horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
               repeat(featuredList.size) { index ->
@@ -274,7 +275,7 @@ fun HomeScreen(
             onAction = onOpenHistory
           )
           LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
+            contentPadding = PaddingValues(horizontal = Dimens.ScreenHorizontal),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
           ) {
             items(historyList) { history ->
@@ -318,10 +319,10 @@ fun HomeScreen(
             text = "Categories",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            modifier = Modifier.padding(horizontal = Dimens.ScreenHorizontal, vertical = 6.dp)
           )
           LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
+            contentPadding = PaddingValues(horizontal = Dimens.ScreenHorizontal),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
           ) {
             items(categories) { cat ->
@@ -349,7 +350,7 @@ fun HomeScreen(
         if (displayItems.isNotEmpty()) {
           SectionHeader(title = "Recently Added")
           LazyRow(
-            contentPadding = PaddingValues(horizontal = 16.dp),
+            contentPadding = PaddingValues(horizontal = Dimens.ScreenHorizontal),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
           ) {
             items(displayItems) { media ->
@@ -373,7 +374,7 @@ fun HomeScreen(
           onAction = { onSeeAllClick("All Movies", false) }
         )
         LazyRow(
-          contentPadding = PaddingValues(horizontal = 16.dp),
+          contentPadding = PaddingValues(horizontal = Dimens.ScreenHorizontal),
           horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
           items(displayMovies) { movie ->
@@ -396,7 +397,7 @@ fun HomeScreen(
           onAction = { onSeeAllClick("All Web Series", true) }
         )
         LazyRow(
-          contentPadding = PaddingValues(horizontal = 16.dp),
+          contentPadding = PaddingValues(horizontal = Dimens.ScreenHorizontal),
           horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
           items(displaySeries) { item ->
@@ -419,7 +420,7 @@ fun SectionHeader(
   Row(
     modifier = Modifier
       .fillMaxWidth()
-      .padding(horizontal = 16.dp, vertical = 10.dp),
+      .padding(horizontal = Dimens.ScreenHorizontal, vertical = 10.dp),
     horizontalArrangement = Arrangement.SpaceBetween,
     verticalAlignment = Alignment.CenterVertically
   ) {
