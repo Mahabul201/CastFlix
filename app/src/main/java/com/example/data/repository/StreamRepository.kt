@@ -161,6 +161,18 @@ class StreamRepository(private val context: Context) {
     historyDao.getHistoryCount()
   }
 
+  // Preferred video quality (e.g. "720p"); null = not chosen yet
+  fun getPreferredQuality(): String? = prefs.getString("preferredQuality", null)
+
+  fun setPreferredQuality(label: String) {
+    prefs.edit().putString("preferredQuality", label).apply()
+  }
+
+  // Latest saved progress for a title (for a series: the episode watched last)
+  suspend fun getLastProgress(mediaId: String): WatchHistoryEntity? = withContext(Dispatchers.IO) {
+    historyDao.getHistoryForMedia(mediaId)
+  }
+
   // Favorites
   fun isFavoriteFlow(mediaId: String): Flow<Boolean> = favoriteDao.isFavoriteFlow(mediaId)
 
