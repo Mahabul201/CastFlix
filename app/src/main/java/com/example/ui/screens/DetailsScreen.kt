@@ -369,11 +369,7 @@ private fun WatchPage(
   }
 
   fun shareMedia() {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-      type = "text/plain"
-      putExtra(Intent.EXTRA_TEXT, "Watch ${current.title} (${current.year}) on CastFlix")
-    }
-    context.startActivity(Intent.createChooser(intent, "Share"))
+    com.example.util.ShareUtils.shareMedia(context, current)
   }
 
   // ---- UI ----
