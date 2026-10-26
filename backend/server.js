@@ -407,6 +407,15 @@ app.delete('/api/series/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// Health check (Koyeb)
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', db: isMongoConnected ? 'mongodb' : 'memory' });
+});
+
+app.get('/', (req, res) => {
+  res.redirect('/admin');
+});
+
 // Serve Admin Panel at /admin
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
