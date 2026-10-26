@@ -93,6 +93,10 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.data.model.Episode
 import com.example.data.model.MediaItem
+import com.example.data.model.buildQualityOptions
+import com.example.data.model.hasQualityChoice
+import com.example.data.model.pickQuality
+import com.example.ui.components.QualityPickerDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -106,14 +110,26 @@ fun VideoPlayerScreen(
   initialEpisode: Episode? = null,
   initialPositionMs: Long = 0L,
   onBack: () -> Unit,
-  onSaveProgress: (positionMs: Long, durationMs: Long, episode: Episode?) -> Unit
+  onSaveProgress: (positionMs: Long, durationMs: Long, episode: Episode?) -> Unit,
+  preferredQuality: String? = null,
+  onQualityChosen: (String) -> Unit = {}
 ) {
   val context = LocalContext.current
   val activity = context as? Activity
   val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
 
   var currentEpisode by remember { mutableStateOf(initialEpisode ?: media.episodes.firstOrNull()) }
-  val activeStreamUrl = currentEpisode?.streamUrl ?: media.streamUrl
+
+  // Quality (480p / 720p / 1080p)
+  var selectedQuality by remember { mutableStateOf(preferredQuality) }
+  var showQualitySheet by remember { mutableStateOf(false) }
+  val qualityOptions = remember(media, currentEpisode) {
+    val ep = currentEpisode
+    if (ep != null) buildQualityOptions(ep.qualities, ep.streamUrl)
+    else buildQualityOptions(media.qualities, media.streamUrl)
+  }
+  val activeQuality = pickQuality(qualityOptions, selectedQuality)
+  val activeStreamUrl = activeQuality?.url ?: (currentEpisode?.streamUrl ?: media.streamUrl)
 
   var isPlaying by remember { mutableStateOf(true) }
   var isBuffering by remember { mutableStateOf(true) }
@@ -146,18 +162,32 @@ fun VideoPlayerScreen(
     }
   }
 
-  // Load stream
+  // Load stream: resume on first load, keep position when only the quality changes
+  var loadedUrl by remember { mutableStateOf("") }
+  var loadedKey by remember { mutableStateOf("") }
+  var firstLoadDone by remember { mutableStateOf(false) }
   LaunchedEffect(activeStreamUrl) {
-    if (activeStreamUrl.isNotBlank()) {
-      val mediaItem = Media3Item.Builder()
-        .setUri(Uri.parse(activeStreamUrl))
-        .build()
-      exoPlayer.setMediaItem(mediaItem)
-      exoPlayer.prepare()
-      if (initialPositionMs > 0) {
-        exoPlayer.seekTo(initialPositionMs)
+    if (activeStreamUrl.isNotBlank() && activeStreamUrl != loadedUrl) {
+      val contentKey = currentEpisode?.id ?: media.id
+      val startAt = when {
+        loadedKey == contentKey && loadedUrl.isNotBlank() -> max(0L, exoPlayer.currentPosition)
+        !firstLoadDone -> initialPositionMs
+        else -> 0L
       }
+      loadedUrl = activeStreamUrl
+      loadedKey = contentKey
+      firstLoadDone = true
+      exoPlayer.setMediaItem(Media3Item.fromUri(Uri.parse(activeStreamUrl)), startAt)
+      exoPlayer.prepare()
       exoPlayer.play()
+    }
+  }
+
+  // Never overwrite a good resume point with "0:00" when the user leaves right away
+  fun saveNow() {
+    val pos = exoPlayer.currentPosition
+    if (pos > 3000L) {
+      onSaveProgress(pos, max(0L, exoPlayer.duration), currentEpisode)
     }
   }
 
@@ -167,8 +197,16 @@ fun VideoPlayerScreen(
       isFullscreen = false
       activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     } else {
-      onSaveProgress(exoPlayer.currentPosition, max(0L, exoPlayer.duration), currentEpisode)
+      saveNow()
       onBack()
+    }
+  }
+
+  // Auto-save every 10s while playing
+  LaunchedEffect(exoPlayer) {
+    while (true) {
+      delay(10_000)
+      if (exoPlayer.isPlaying) saveNow()
     }
   }
 
@@ -223,7 +261,7 @@ fun VideoPlayerScreen(
     onDispose {
       activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
       activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-      onSaveProgress(exoPlayer.currentPosition, max(0L, exoPlayer.duration), currentEpisode)
+      saveNow()
       exoPlayer.removeListener(listener)
       exoPlayer.release()
     }
@@ -442,7 +480,7 @@ fun VideoPlayerScreen(
         ) {
           IconButton(
             onClick = {
-              onSaveProgress(exoPlayer.currentPosition, max(0L, exoPlayer.duration), currentEpisode)
+              saveNow()
               onBack()
             },
             modifier = Modifier.testTag("player_back_button")
@@ -468,6 +506,22 @@ fun VideoPlayerScreen(
                 overflow = TextOverflow.Ellipsis
               )
             }
+          }
+
+          // Quality button (only when more than one quality exists)
+          if (hasQualityChoice(qualityOptions) && activeQuality != null) {
+            Text(
+              text = activeQuality.label,
+              color = Color.White,
+              fontSize = 12.sp,
+              fontWeight = FontWeight.Bold,
+              modifier = Modifier
+                .padding(horizontal = 4.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.White.copy(alpha = 0.2f))
+                .clickable { showQualitySheet = true }
+                .padding(horizontal = 10.dp, vertical = 6.dp)
+            )
           }
 
           // Speed button
@@ -690,6 +744,20 @@ fun VideoPlayerScreen(
           }
         }
       }
+    }
+
+    if (showQualitySheet) {
+      QualityPickerDialog(
+        title = "Video quality",
+        options = qualityOptions,
+        selectedLabel = activeQuality?.label,
+        onSelect = { option ->
+          selectedQuality = option.label
+          onQualityChosen(option.label)
+          showQualitySheet = false
+        },
+        onDismiss = { showQualitySheet = false }
+      )
     }
 
     // Speed Selector Sheet
