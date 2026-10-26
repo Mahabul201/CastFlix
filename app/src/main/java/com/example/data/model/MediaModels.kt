@@ -3,6 +3,13 @@ package com.example.data.model
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
+/** One playable/downloadable variant of a video, e.g. label "720p". */
+@JsonClass(generateAdapter = true)
+data class VideoQuality(
+  @Json(name = "label") val label: String,
+  @Json(name = "url") val url: String
+)
+
 @JsonClass(generateAdapter = true)
 data class MediaItem(
   @Json(name = "id") val id: String,
@@ -15,6 +22,7 @@ data class MediaItem(
   @Json(name = "rating") val rating: Double,
   @Json(name = "duration") val duration: String = "120m",
   @Json(name = "streamUrl") val streamUrl: String = "",
+  @Json(name = "qualities") val qualities: List<VideoQuality> = emptyList(),
   @Json(name = "isSeries") val isSeries: Boolean = false,
   @Json(name = "episodes") val episodes: List<Episode> = emptyList(),
   @Json(name = "createdAt") val createdAt: Long = System.currentTimeMillis()
@@ -29,6 +37,7 @@ data class Episode(
   @Json(name = "title") val title: String,
   @Json(name = "thumbnail") val thumbnail: String,
   @Json(name = "streamUrl") val streamUrl: String,
+  @Json(name = "qualities") val qualities: List<VideoQuality> = emptyList(),
   @Json(name = "duration") val duration: String = "45m"
 )
 
@@ -66,4 +75,17 @@ data class StreamSettings(
   val parentalLock: Boolean = false,
   val parentalPin: String = "0000",
   val backendUrl: String = "https://gastric-rasla-evamusic-01582837.koyeb.app"
+)
+
+/**
+ * Where the watch page should start. Set when the user taps a history row or leaves the
+ * fullscreen player, so the page does not depend on the database write having finished.
+ * For movies [season] and [episodeNumber] are null.
+ */
+data class ResumePoint(
+  val mediaId: String,
+  val season: Int? = null,
+  val episodeNumber: Int? = null,
+  val positionMs: Long = 0L,
+  val durationMs: Long = 0L
 )
