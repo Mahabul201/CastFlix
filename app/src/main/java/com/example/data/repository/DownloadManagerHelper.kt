@@ -26,10 +26,23 @@ data class StorageInfo(
 
 data class LocalVideoFile(
   val name: String,
+  /** content:// uri (phone storage) or absolute file path (app downloads) */
   val path: String,
   val sizeBytes: Long,
-  val formattedSize: String
-)
+  val formattedSize: String,
+  val durationMs: Long = 0L,
+  val folder: String = ""
+) {
+  val formattedDuration: String
+    get() {
+      if (durationMs <= 0L) return ""
+      val totalSec = durationMs / 1000
+      val h = totalSec / 3600
+      val m = (totalSec % 3600) / 60
+      val sec = totalSec % 60
+      return if (h > 0) String.format("%d:%02d:%02d", h, m, sec) else String.format("%d:%02d", m, sec)
+    }
+}
 
 class DownloadManagerHelper(private val context: Context) {
   private val database = AppDatabase.getDatabase(context)
@@ -190,39 +203,81 @@ class DownloadManagerHelper(private val context: Context) {
     }
   }
 
+  /** True when the app may read videos from the phone's storage. */
+  fun hasLocalFilesPermission(): Boolean {
+    val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+      android.Manifest.permission.READ_MEDIA_VIDEO
+    } else {
+      android.Manifest.permission.READ_EXTERNAL_STORAGE
+    }
+    return androidx.core.content.ContextCompat.checkSelfPermission(context, permission) ==
+      android.content.pm.PackageManager.PERMISSION_GRANTED
+  }
+
+  /**
+   * Every video on the phone (gallery, Downloads, WhatsApp, SD card...) through MediaStore,
+   * newest first, plus the videos CastFlix downloaded itself.
+   */
   fun getLocalFiles(): List<LocalVideoFile> {
     val results = mutableListOf<LocalVideoFile>()
+
+    if (hasLocalFilesPermission()) {
+      try {
+        val collection = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+          android.provider.MediaStore.Video.Media.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL)
+        } else {
+          android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        }
+        val projection = arrayOf(
+          android.provider.MediaStore.Video.Media._ID,
+          android.provider.MediaStore.Video.Media.DISPLAY_NAME,
+          android.provider.MediaStore.Video.Media.SIZE,
+          android.provider.MediaStore.Video.Media.DURATION,
+          android.provider.MediaStore.Video.Media.DATE_ADDED
+        )
+        context.contentResolver.query(
+          collection,
+          projection,
+          null,
+          null,
+          "${android.provider.MediaStore.Video.Media.DATE_ADDED} DESC"
+        )?.use { cursor ->
+          val idCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Video.Media._ID)
+          val nameCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Video.Media.DISPLAY_NAME)
+          val sizeCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Video.Media.SIZE)
+          val durCol = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Video.Media.DURATION)
+          while (cursor.moveToNext()) {
+            val size = cursor.getLong(sizeCol)
+            if (size <= 0L) continue
+            val uri = android.content.ContentUris.withAppendedId(collection, cursor.getLong(idCol))
+            results.add(
+              LocalVideoFile(
+                name = cursor.getString(nameCol) ?: "Video",
+                path = uri.toString(),
+                sizeBytes = size,
+                formattedSize = formatFileSize(size),
+                durationMs = cursor.getLong(durCol)
+              )
+            )
+          }
+        }
+      } catch (_: Exception) {
+        // fall through: still show CastFlix's own downloads below
+      }
+    }
+
+    // Videos CastFlix downloaded itself (readable without any permission)
     try {
       val downloadDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
-      val files = downloadDir.listFiles() ?: emptyArray()
-      for (file in files) {
-        if (file.isFile && (file.name.endsWith(".mp4") || file.name.endsWith(".mkv") || file.name.endsWith(".mov") || file.name.endsWith(".webm"))) {
-          val sizeBytes = file.length()
-          val sizeFormatted = formatFileSize(sizeBytes)
-          results.add(LocalVideoFile(file.name, file.absolutePath, sizeBytes, sizeFormatted))
+      val known = results.map { it.name }.toSet()
+      downloadDir.listFiles()?.forEach { file ->
+        val ext = file.extension.lowercase()
+        if (file.isFile && ext in setOf("mp4", "mkv", "mov", "webm", "avi", "3gp") && file.name !in known) {
+          results.add(LocalVideoFile(file.name, file.absolutePath, file.length(), formatFileSize(file.length())))
         }
       }
     } catch (_: Exception) {}
 
-    // Add sample bundled demo files if list is empty so the user can immediately test local file streaming
-    if (results.isEmpty()) {
-      results.add(
-        LocalVideoFile(
-          name = "sample_trailer_direct.mp4",
-          path = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-          sizeBytes = 158000000L,
-          formattedSize = "150.7 MB"
-        )
-      )
-      results.add(
-        LocalVideoFile(
-          name = "blender_open_movie_preview.mp4",
-          path = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-          sizeBytes = 224000000L,
-          formattedSize = "213.6 MB"
-        )
-      )
-    }
     return results
   }
 
