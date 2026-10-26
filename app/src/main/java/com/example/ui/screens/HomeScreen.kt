@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.filled.Notifications
 import com.example.ui.theme.Dimens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -80,7 +82,8 @@ fun HomeScreen(
   onOpenDirectUrlDialog: () -> Unit = {},
   onOpenDetails: (MediaItem) -> Unit = {},
   onOpenHistory: () -> Unit = {},
-  onSeeAllClick: (title: String, isSeries: Boolean) -> Unit
+  onOpenNotifications: () -> Unit = {},
+  onSeeAllClick: (title: String, kind: String) -> Unit
 ) {
   var homeData by remember { mutableStateOf<HomeResponse?>(null) }
   var selectedCategory by remember { mutableStateOf("All") }
@@ -89,6 +92,14 @@ fun HomeScreen(
 
   LaunchedEffect(Unit) {
     homeData = repository.fetchHomeData()
+  }
+
+  // Unread admin notifications for the bell badge
+  var unreadCount by remember { mutableStateOf(0) }
+  LaunchedEffect(Unit) {
+    val lastRead = repository.getLastReadNotificationAt()
+    val list = repository.fetchNotifications()
+    unreadCount = if (lastRead < 0L) 0 else list.count { it.createdAt > lastRead }
   }
 
   val data = homeData
@@ -371,7 +382,7 @@ fun HomeScreen(
           title = "Movies",
           showAction = true,
           actionLabel = "See All",
-          onAction = { onSeeAllClick("All Movies", false) }
+          onAction = { onSeeAllClick("All Movies", "movies") }
         )
         LazyRow(
           contentPadding = PaddingValues(horizontal = Dimens.ScreenHorizontal),
@@ -394,7 +405,7 @@ fun HomeScreen(
           title = "Web Series",
           showAction = true,
           actionLabel = "See All",
-          onAction = { onSeeAllClick("All Web Series", true) }
+          onAction = { onSeeAllClick("All Web Series", "series") }
         )
         LazyRow(
           contentPadding = PaddingValues(horizontal = Dimens.ScreenHorizontal),
@@ -404,7 +415,74 @@ fun HomeScreen(
             MediaPosterCard(media = item, onClick = { onOpenDetails(item) })
           }
         }
+        Spacer(modifier = Modifier.height(16.dp))
+      }
+
+      // 7. ANIME (own section, shown when the admin has added anime)
+      item {
+        val anime = data?.anime ?: emptyList()
+        val filtered = if (selectedCategory == "All") anime else anime.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+        val displayAnime = if (filtered.isEmpty()) anime else filtered
+
+        if (displayAnime.isNotEmpty()) {
+          SectionHeader(
+            title = "Anime",
+            showAction = true,
+            actionLabel = "See All",
+            onAction = { onSeeAllClick("All Anime", "anime") }
+          )
+          LazyRow(
+            contentPadding = PaddingValues(horizontal = Dimens.ScreenHorizontal),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+          ) {
+            items(displayAnime) { item ->
+              MediaPosterCard(media = item, onClick = { onOpenDetails(item) })
+            }
+          }
+        }
         Spacer(modifier = Modifier.height(24.dp))
+      }
+    }
+
+    // Notification bell (top right, over the banner)
+    Box(
+      modifier = Modifier
+        .align(Alignment.TopEnd)
+        .statusBarsPadding()
+        .padding(end = Dimens.ScreenHorizontal - 4.dp, top = 8.dp)
+    ) {
+      Surface(
+        shape = CircleShape,
+        color = Color.Black.copy(alpha = 0.45f),
+        modifier = Modifier
+          .size(42.dp)
+          .clickable { onOpenNotifications() }
+          .testTag("home_notification_bell")
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            Icons.Default.Notifications,
+            contentDescription = "Notifications",
+            tint = Color.White
+          )
+        }
+      }
+      if (unreadCount > 0) {
+        Box(
+          modifier = Modifier
+            .align(Alignment.TopEnd)
+            .size(16.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary),
+          contentAlignment = Alignment.Center
+        ) {
+          Text(
+            text = if (unreadCount > 9) "9+" else unreadCount.toString(),
+            color = Color.White,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+          )
+        }
       }
     }
   }
