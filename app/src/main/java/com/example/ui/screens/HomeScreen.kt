@@ -76,7 +76,9 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
   repository: StreamRepository,
   onPlayMedia: (MediaItem, Long) -> Unit,
-  onOpenDirectUrlDialog: () -> Unit,
+  onOpenDirectUrlDialog: () -> Unit = {},
+  onOpenDetails: (MediaItem) -> Unit = {},
+  onOpenHistory: () -> Unit = {},
   onSeeAllClick: (title: String, isSeries: Boolean) -> Unit
 ) {
   var homeData by remember { mutableStateOf<HomeResponse?>(null) }
@@ -230,7 +232,7 @@ fun HomeScreen(
                     ) {
                       Icon(Icons.Default.Add, contentDescription = null)
                       Spacer(modifier = Modifier.width(4.dp))
-                      Text("Watchlist")
+                      Text("My List", maxLines = 1, softWrap = false)
                     }
                   }
                 }
@@ -268,12 +270,8 @@ fun HomeScreen(
           SectionHeader(
             title = "Recently Played",
             showAction = true,
-            actionLabel = "Clear",
-            onAction = {
-              coroutineScope.launch {
-                repository.clearHistory()
-              }
-            }
+            actionLabel = "History",
+            onAction = onOpenHistory
           )
           LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
@@ -355,7 +353,7 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
           ) {
             items(displayItems) { media ->
-              MediaPosterCard(media = media, onClick = { onPlayMedia(media, 0L) })
+              MediaPosterCard(media = media, onClick = { onOpenDetails(media) })
             }
           }
           Spacer(modifier = Modifier.height(16.dp))
@@ -379,7 +377,7 @@ fun HomeScreen(
           horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
           items(displayMovies) { movie ->
-            MediaPosterCard(media = movie, onClick = { onPlayMedia(movie, 0L) })
+            MediaPosterCard(media = movie, onClick = { onOpenDetails(movie) })
           }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -402,27 +400,10 @@ fun HomeScreen(
           horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
           items(displaySeries) { item ->
-            MediaPosterCard(media = item, onClick = { onPlayMedia(item, 0L) })
+            MediaPosterCard(media = item, onClick = { onOpenDetails(item) })
           }
         }
         Spacer(modifier = Modifier.height(24.dp))
-      }
-    }
-
-    // Direct URL quick stream Floating Action Button
-    FloatingActionButton(
-      onClick = onOpenDirectUrlDialog,
-      containerColor = MaterialTheme.colorScheme.primary,
-      contentColor = Color.White,
-      modifier = Modifier
-        .align(Alignment.BottomEnd)
-        .padding(end = 20.dp, bottom = 100.dp)
-        .testTag("direct_url_fab")
-    ) {
-      Row(modifier = Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Default.Link, contentDescription = "Direct URL Stream")
-        Spacer(modifier = Modifier.width(8.dp))
-        Text("Stream URL", fontWeight = FontWeight.Bold, fontSize = 13.sp)
       }
     }
   }
