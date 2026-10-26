@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Episode
 import com.example.data.model.MediaItem
+import com.example.data.model.ResumePoint
 import com.example.data.repository.DownloadManagerHelper
 import com.example.data.repository.StreamRepository
 import com.example.ui.components.DirectUrlStreamDialog
@@ -162,28 +163,76 @@ fun MainAppContent(
 
   var showDirectUrlDialog by remember { mutableStateOf(false) }
   var detailMedia by remember { mutableStateOf<MediaItem?>(null) }
+  // Where the watch page should continue (history tap / back from fullscreen)
+  var resumePoint by remember { mutableStateOf<ResumePoint?>(null) }
   var showHistory by remember { mutableStateOf(false) }
   var seeAllTitle by remember { mutableStateOf<String?>(null) }
   var seeAllIsSeries by remember { mutableStateOf(false) }
 
   val coroutineScope = rememberCoroutineScope()
 
+  // Opens the watch page; it resumes from the saved position on its own
+  fun openDetails(media: MediaItem, resume: ResumePoint? = null) {
+    resumePoint = resume
+    detailMedia = media
+  }
+
   // Fullscreen Video Player Mode
-  if (activePlayerMedia != null) {
+  val playerMedia = activePlayerMedia
+  if (playerMedia != null) {
     VideoPlayerScreen(
-      media = activePlayerMedia!!,
+      media = playerMedia,
       initialEpisode = activePlayerEpisode,
       initialPositionMs = activePlayerPosition,
       onBack = {
         activePlayerMedia = null
       },
       onSaveProgress = { pos, dur, ep ->
+        // Remember where we stopped so the watch page continues from here.
+        // (playerMedia is captured on purpose: activePlayerMedia is already null when the
+        // coroutine below runs after the player closes, which used to drop the save.)
+        resumePoint = ResumePoint(
+          mediaId = playerMedia.id,
+          season = ep?.season,
+          episodeNumber = ep?.episodeNumber,
+          positionMs = pos,
+          durationMs = dur
+        )
         coroutineScope.launch {
-          activePlayerMedia?.let {
-            repository.saveWatchProgress(it, pos, dur, ep)
-          }
+          repository.saveWatchProgress(playerMedia, pos, dur, ep)
         }
-      }
+      },
+      preferredQuality = repository.getPreferredQuality(),
+      onQualityChosen = { repository.setPreferredQuality(it) }
+    )
+    return
+  }
+
+  // Movie / series watch page (checked before History so Back returns to History)
+  val watchMedia = detailMedia
+  if (watchMedia != null) {
+    BackHandler {
+      detailMedia = null
+      resumePoint = null
+    }
+    com.example.ui.screens.DetailsScreen(
+      media = watchMedia,
+      repository = repository,
+      downloadHelper = downloadHelper,
+      onBack = {
+        detailMedia = null
+        resumePoint = null
+      },
+      onPlay = { media, episode, pos ->
+        activePlayerMedia = media
+        activePlayerPosition = pos
+        activePlayerEpisode = episode
+      },
+      onOpenMedia = { item -> openDetails(item) },
+      onSaveProgress = { m, pos, dur, ep ->
+        coroutineScope.launch { repository.saveWatchProgress(m, pos, dur, ep) }
+      },
+      resume = resumePoint
     )
     return
   }
@@ -194,32 +243,7 @@ fun MainAppContent(
     com.example.ui.screens.HistoryScreen(
       repository = repository,
       onBack = { showHistory = false },
-      onPlay = { media, episode, pos ->
-        activePlayerMedia = media
-        activePlayerPosition = pos
-        activePlayerEpisode = episode
-      }
-    )
-    return
-  }
-
-  // Movie / series details page
-  if (detailMedia != null) {
-    BackHandler { detailMedia = null }
-    com.example.ui.screens.DetailsScreen(
-      media = detailMedia!!,
-      repository = repository,
-      downloadHelper = downloadHelper,
-      onBack = { detailMedia = null },
-      onPlay = { media, episode, pos ->
-        activePlayerMedia = media
-        activePlayerPosition = pos
-        activePlayerEpisode = episode
-      },
-      onOpenMedia = { item -> detailMedia = item },
-      onSaveProgress = { m, pos, dur, ep ->
-        coroutineScope.launch { repository.saveWatchProgress(m, pos, dur, ep) }
-      }
+      onOpen = { media, resume -> openDetails(media, resume) }
     )
     return
   }
@@ -235,7 +259,7 @@ fun MainAppContent(
       title = seeAllTitle!!,
       items = items,
       onBack = { seeAllTitle = null },
-      onPlayMedia = { media -> detailMedia = media }
+      onPlayMedia = { media -> openDetails(media) }
     )
     return
   }
@@ -299,16 +323,8 @@ fun MainAppContent(
         when (tab) {
           NavigationTab.HOME -> HomeScreen(
             repository = repository,
-            onPlayMedia = { media, pos ->
-              if (pos == 0L) {
-                detailMedia = media
-              } else {
-                activePlayerMedia = media
-                activePlayerPosition = pos
-                activePlayerEpisode = media.episodes.firstOrNull()
-              }
-            },
-            onOpenDetails = { media -> detailMedia = media },
+            onPlayMedia = { media, _ -> openDetails(media) },
+            onOpenDetails = { media -> openDetails(media) },
             onOpenHistory = { showHistory = true },
             onSeeAllClick = { title, isSeries ->
               seeAllTitle = title
@@ -317,15 +333,7 @@ fun MainAppContent(
           )
           NavigationTab.SEARCH -> SearchScreen(
             repository = repository,
-            onPlayMedia = { media, pos ->
-              if (pos == 0L) {
-                detailMedia = media
-              } else {
-                activePlayerMedia = media
-                activePlayerPosition = pos
-                activePlayerEpisode = media.episodes.firstOrNull()
-              }
-            }
+            onPlayMedia = { media, _ -> openDetails(media) }
           )
           NavigationTab.DOWNLOAD -> DownloadScreen(
             repository = repository,
@@ -341,15 +349,7 @@ fun MainAppContent(
           )
           NavigationTab.PROFILE -> ProfileScreen(
             repository = repository,
-            onPlayMedia = { media, pos ->
-              if (pos == 0L) {
-                detailMedia = media
-              } else {
-                activePlayerMedia = media
-                activePlayerPosition = pos
-                activePlayerEpisode = media.episodes.firstOrNull()
-              }
-            },
+            onPlayMedia = { media, _ -> openDetails(media) },
             onOpenHistory = { showHistory = true }
           )
         }
