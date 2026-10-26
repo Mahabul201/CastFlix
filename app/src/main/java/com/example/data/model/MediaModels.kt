@@ -65,5 +65,5 @@ data class StreamSettings(
   val subtitleColor: String = "WHITE",
   val parentalLock: Boolean = false,
   val parentalPin: String = "0000",
-  val backendUrl: String = "https://url-stream-api.koyeb.app"
+  val backendUrl: String = "https://gastric-rasla-evamusic-01582837.koyeb.app"
 )
