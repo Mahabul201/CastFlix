@@ -24,6 +24,7 @@ data class MediaItem(
   @Json(name = "streamUrl") val streamUrl: String = "",
   @Json(name = "qualities") val qualities: List<VideoQuality> = emptyList(),
   @Json(name = "isSeries") val isSeries: Boolean = false,
+  @Json(name = "isAnime") val isAnime: Boolean = false,
   @Json(name = "episodes") val episodes: List<Episode> = emptyList(),
   @Json(name = "createdAt") val createdAt: Long = System.currentTimeMillis()
 )
@@ -47,7 +48,19 @@ data class HomeResponse(
   @Json(name = "recentlyAdded") val recentlyAdded: List<MediaItem>,
   @Json(name = "movies") val movies: List<MediaItem>,
   @Json(name = "series") val series: List<MediaItem>,
+  @Json(name = "anime") val anime: List<MediaItem> = emptyList(),
   @Json(name = "categories") val categories: List<String>
+)
+
+/** A message the admin sent from the admin panel. */
+@JsonClass(generateAdapter = true)
+data class AppNotification(
+  @Json(name = "id") val id: String,
+  @Json(name = "title") val title: String,
+  @Json(name = "message") val message: String,
+  @Json(name = "imageUrl") val imageUrl: String = "",
+  @Json(name = "link") val link: String = "",
+  @Json(name = "createdAt") val createdAt: Long = 0L
 )
 
 data class UserProfile(
