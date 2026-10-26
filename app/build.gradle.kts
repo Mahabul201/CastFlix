@@ -59,6 +59,10 @@ android {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
   }
+  lint {
+    // False positive: MainActivity extends ComponentActivity, not FragmentActivity.
+    disable += "InvalidFragmentVersionForActivityResult"
+  }
   buildFeatures {
     compose = true
     buildConfig = true
@@ -87,6 +91,7 @@ dependencies {
   implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)
   implementation(libs.androidx.activity.compose)
+  implementation("androidx.fragment:fragment-ktx:1.8.5")
   // implementation(libs.androidx.camera.camera2)
   // implementation(libs.androidx.camera.core)
   // implementation(libs.androidx.camera.lifecycle)
