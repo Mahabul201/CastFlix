@@ -6,6 +6,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.FavoriteEntity
 import com.example.data.local.WatchHistoryEntity
 import com.example.data.local.WatchlistEntity
+import com.example.data.model.AppNotification
 import com.example.data.model.Episode
 import com.example.data.model.HomeResponse
 import com.example.data.model.MediaItem
@@ -38,6 +39,9 @@ class StreamRepository(private val context: Context) {
   private val _series = MutableStateFlow<List<MediaItem>>(SeedData.sampleSeries)
   val series = _series.asStateFlow()
 
+  private val _anime = MutableStateFlow<List<MediaItem>>(emptyList())
+  val anime = _anime.asStateFlow()
+
   val watchHistory: Flow<List<WatchHistoryEntity>> = historyDao.getAllHistory()
   val favorites: Flow<List<FavoriteEntity>> = favoriteDao.getAllFavorites()
   val watchlist: Flow<List<WatchlistEntity>> = watchlistDao.getAllWatchlist()
@@ -54,6 +58,7 @@ class StreamRepository(private val context: Context) {
       if (remoteHome.movies.isNotEmpty() || remoteHome.series.isNotEmpty()) {
         _movies.value = remoteHome.movies
         _series.value = remoteHome.series
+        _anime.value = remoteHome.anime
         return@withContext remoteHome
       }
     } catch (_: Exception) {
@@ -72,10 +77,11 @@ class StreamRepository(private val context: Context) {
 
   suspend fun searchMedia(query: String, filter: String): List<MediaItem> = withContext(Dispatchers.IO) {
     if (query.isBlank()) {
-      val combined = (_movies.value + _series.value).shuffled()
+      val combined = (_movies.value + _series.value + _anime.value).shuffled()
       return@withContext when (filter.lowercase()) {
         "movies" -> combined.filter { !it.isSeries }
-        "web series", "series" -> combined.filter { it.isSeries }
+        "web series", "series" -> combined.filter { it.isSeries && !it.isAnime }
+        "anime" -> combined.filter { it.isAnime }
         else -> combined
       }
     }
@@ -88,14 +94,15 @@ class StreamRepository(private val context: Context) {
     }
 
     val q = query.trim().lowercase()
-    val all = _movies.value + _series.value
+    val all = _movies.value + _series.value + _anime.value
     all.filter { item ->
       val matchesQuery = item.title.lowercase().contains(q) ||
         item.description.lowercase().contains(q) ||
         item.category.lowercase().contains(q)
       val matchesFilter = when (filter.lowercase()) {
         "movies" -> !item.isSeries
-        "web series", "series" -> item.isSeries
+        "web series", "series" -> item.isSeries && !item.isAnime
+        "anime" -> item.isAnime
         else -> true
       }
       matchesQuery && matchesFilter
@@ -103,7 +110,7 @@ class StreamRepository(private val context: Context) {
   }
 
   suspend fun getRandomMix(): List<MediaItem> = withContext(Dispatchers.IO) {
-    (_movies.value + _series.value).shuffled().take(6)
+    (_movies.value + _series.value + _anime.value).shuffled().take(6)
   }
 
   suspend fun getEpisodes(media: MediaItem): List<Episode> = withContext(Dispatchers.IO) {
@@ -116,7 +123,7 @@ class StreamRepository(private val context: Context) {
   }
 
   suspend fun getMediaById(id: String): MediaItem? = withContext(Dispatchers.IO) {
-    (_movies.value + _series.value).find { it.id == id }
+    (_movies.value + _series.value + _anime.value).find { it.id == id }
   }
 
   // Watch History
@@ -159,6 +166,29 @@ class StreamRepository(private val context: Context) {
 
   suspend fun getHistoryCount(): Int = withContext(Dispatchers.IO) {
     historyDao.getHistoryCount()
+  }
+
+  // Notifications sent from the admin panel
+  suspend fun fetchNotifications(): List<AppNotification> = withContext(Dispatchers.IO) {
+    try {
+      apiService.getNotifications()
+    } catch (_: Exception) {
+      emptyList()
+    }
+  }
+
+  /** Time (ms) of the newest notification the user has already been told about. */
+  fun getLastSeenNotificationAt(): Long = prefs.getLong("lastSeenNotificationAt", -1L)
+
+  fun setLastSeenNotificationAt(timeMs: Long) {
+    prefs.edit().putLong("lastSeenNotificationAt", timeMs).apply()
+  }
+
+  /** Time (ms) of the newest notification the user opened in the inbox (for the unread badge). */
+  fun getLastReadNotificationAt(): Long = prefs.getLong("lastReadNotificationAt", -1L)
+
+  fun setLastReadNotificationAt(timeMs: Long) {
+    prefs.edit().putLong("lastReadNotificationAt", timeMs).apply()
   }
 
   // Preferred video quality (e.g. "720p"); null = not chosen yet
