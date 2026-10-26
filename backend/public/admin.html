@@ -62,6 +62,25 @@
     .modal-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; width: 100%; max-width: 580px; padding: 28px; max-height: 90vh; overflow-y: auto; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .form-full { grid-column: span 2; }
+    .quality-box { grid-column: span 2; border: 1px solid var(--card-border); border-radius: 12px; padding: 14px 14px 0; margin-bottom: 16px; background: #10131d; }
+    .quality-box h4 { font-size: 13px; margin-bottom: 4px; }
+    .quality-box .hint { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
+    .q-row { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: start; }
+    .q-tag { margin-top: 10px; text-align: center; font-size: 12px; font-weight: 700; padding: 6px 0; border-radius: 6px; background: rgba(0,229,255,0.12); color: var(--accent-cyan); }
+    .q-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+    .q-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; background: rgba(0,229,255,0.12); color: var(--accent-cyan); border: 1px solid rgba(0,229,255,0.35); }
+    .q-badge.none { background: transparent; color: var(--text-muted); border-color: var(--card-border); }
+    .ep-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--card-border); }
+    .ep-row:last-child { border-bottom: 0; }
+    .ep-title { font-weight: 600; font-size: 13px; }
+    .ep-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    @media (max-width: 640px) {
+      header { padding: 12px 16px; }
+      .container { padding: 20px 16px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-full, .quality-box { grid-column: span 1; }
+      .modal-card { padding: 20px; }
+    }
     label { font-size: 12px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px; }
   </style>
 </head>
@@ -126,7 +145,7 @@
               <th>Category</th>
               <th>Year</th>
               <th>Rating</th>
-              <th>Direct Stream URL</th>
+              <th>Qualities</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -203,9 +222,16 @@
             <label>Banner Image URL</label>
             <input type="url" id="movie-banner" placeholder="https://...">
           </div>
+          <div class="quality-box">
+            <h4>Video links by quality</h4>
+            <div class="hint">Fill the qualities you have (.m3u8 / .mp4 / .mkv). Users pick one in the player and when downloading.</div>
+            <div class="q-row"><div class="q-tag">480p</div><input type="url" id="movie-q-480p" placeholder="https://example.com/movie-480p.mp4"></div>
+            <div class="q-row"><div class="q-tag">720p</div><input type="url" id="movie-q-720p" placeholder="https://example.com/movie-720p.mp4"></div>
+            <div class="q-row"><div class="q-tag">1080p</div><input type="url" id="movie-q-1080p" placeholder="https://example.com/movie-1080p.mp4"></div>
+          </div>
           <div class="form-full">
-            <label>Direct Stream URL (.m3u8 / .mp4 / .mkv)</label>
-            <input type="url" id="movie-stream" required placeholder="https://example.com/video.m3u8">
+            <label>Single link (optional - used only when no quality link is filled)</label>
+            <input type="url" id="movie-stream" placeholder="https://example.com/video.m3u8">
           </div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
@@ -254,9 +280,10 @@
   <!-- Add Episode Modal -->
   <div class="modal-backdrop" id="episode-modal">
     <div class="modal-card">
-      <h3 style="margin-bottom: 16px;">Add Episode to Series</h3>
+      <h3 style="margin-bottom: 16px;" id="episode-modal-title">Add Episode to Series</h3>
       <form id="episode-form" onsubmit="saveEpisode(event)">
         <input type="hidden" id="ep-series-id">
+        <input type="hidden" id="ep-id">
         <div class="form-grid">
           <div>
             <label>Season #</label>
@@ -274,16 +301,37 @@
             <label>Thumbnail URL</label>
             <input type="url" id="ep-thumb" placeholder="https://...">
           </div>
+          <div class="quality-box">
+            <h4>Video links by quality</h4>
+            <div class="hint">Fill the qualities you have. At least one link is required.</div>
+            <div class="q-row"><div class="q-tag">480p</div><input type="url" id="ep-q-480p" placeholder="https://..."></div>
+            <div class="q-row"><div class="q-tag">720p</div><input type="url" id="ep-q-720p" placeholder="https://..."></div>
+            <div class="q-row"><div class="q-tag">1080p</div><input type="url" id="ep-q-1080p" placeholder="https://..."></div>
+          </div>
           <div class="form-full">
-            <label>Direct Stream URL (.m3u8 / .mp4)</label>
-            <input type="url" id="ep-stream" required placeholder="https://...">
+            <label>Single link (optional - used only when no quality link is filled)</label>
+            <input type="url" id="ep-stream" placeholder="https://...">
           </div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
           <button type="button" class="secondary" onclick="closeModals()">Cancel</button>
-          <button type="submit">Add Episode</button>
+          <button type="submit">Save Episode</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Episodes list modal -->
+  <div class="modal-backdrop" id="episodes-modal">
+    <div class="modal-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px; gap: 12px;">
+        <h3 id="episodes-modal-title">Episodes</h3>
+        <button onclick="openEpisodeFromList()" style="padding: 8px 14px; font-size: 12px;">+ Add Episode</button>
+      </div>
+      <div id="episodes-list"></div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+        <button type="button" class="secondary" onclick="closeModals()">Close</button>
+      </div>
     </div>
   </div>
 
@@ -291,6 +339,34 @@
     let token = sessionStorage.getItem('admin_token');
     let movies = [];
     let series = [];
+    let activeSeriesId = null;
+    const QUALITIES = ['480p', '720p', '1080p'];
+
+    function esc(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function qualityBadges(item) {
+      const have = (item.qualities || []).map(q => q.label);
+      if (!have.length) return '<span class="q-badge none">Single link</span>';
+      return '<div class="q-badges">' + QUALITIES.filter(l => have.includes(l)).map(l => `<span class="q-badge">${l}</span>`).join('') + '</div>';
+    }
+
+    function readQualities(prefix) {
+      return QUALITIES
+        .map(l => ({ label: l, url: document.getElementById(`${prefix}-q-${l}`).value.trim() }))
+        .filter(q => q.url);
+    }
+
+    function fillQualities(prefix, item) {
+      const map = {};
+      ((item && item.qualities) || []).forEach(q => { map[q.label] = q.url; });
+      QUALITIES.forEach(l => { document.getElementById(`${prefix}-q-${l}`).value = map[l] || ''; });
+    }
+
+    async function errorMessage(res, fallback) {
+      try { const d = await res.json(); return d.error || fallback; } catch (_) { return fallback; }
+    }
 
     window.onload = () => {
       if (token) {
@@ -352,12 +428,12 @@
         const id = m._id || m.id;
         return `
           <tr>
-            <td><img src="${m.poster}" class="thumb" onerror="this.src='https://placehold.co/44x60/151824/white?text=No+Img'"></td>
-            <td><strong>${m.title}</strong></td>
-            <td><span class="badge">${m.category}</span></td>
-            <td>${m.year}</td>
-            <td>★ ${m.rating}</td>
-            <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-cyan);">${m.streamUrl}</td>
+            <td><img src="${esc(m.poster)}" class="thumb" onerror="this.src='https://placehold.co/44x60/151824/white?text=No+Img'"></td>
+            <td><strong>${esc(m.title)}</strong></td>
+            <td><span class="badge">${esc(m.category)}</span></td>
+            <td>${esc(m.year)}</td>
+            <td>★ ${esc(m.rating)}</td>
+            <td>${qualityBadges(m)}</td>
             <td>
               <button class="secondary" style="padding: 4px 8px; font-size: 11px;" onclick="editMovie('${id}')">Edit</button>
               <button class="danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteMovie('${id}')">Del</button>
@@ -374,12 +450,13 @@
         const epCount = (s.episodes && s.episodes.length) || 0;
         return `
           <tr>
-            <td><img src="${s.poster}" class="thumb" onerror="this.src='https://placehold.co/44x60/151824/white?text=No+Img'"></td>
-            <td><strong>${s.title}</strong></td>
-            <td><span class="badge">${s.category}</span></td>
-            <td>${s.year}</td>
+            <td><img src="${esc(s.poster)}" class="thumb" onerror="this.src='https://placehold.co/44x60/151824/white?text=No+Img'"></td>
+            <td><strong>${esc(s.title)}</strong></td>
+            <td><span class="badge">${esc(s.category)}</span></td>
+            <td>${esc(s.year)}</td>
             <td>${epCount} Episodes</td>
             <td>
+              <button class="secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openEpisodesModal('${id}')">Episodes</button>
               <button class="secondary" style="padding: 4px 8px; font-size: 11px;" onclick="openAddEpisodeModal('${id}')">+ Episode</button>
               <button class="danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteSeries('${id}')">Del</button>
             </td>
@@ -404,6 +481,25 @@
       document.getElementById('movie-modal').style.display = 'flex';
     }
 
+    function editMovie(id) {
+      const m = movies.find(x => (x._id || x.id) === id);
+      if (!m) return;
+      document.getElementById('movie-form').reset();
+      document.getElementById('movie-id').value = id;
+      document.getElementById('movie-title').value = m.title || '';
+      document.getElementById('movie-desc').value = m.description || '';
+      document.getElementById('movie-cat').value = m.category || '';
+      document.getElementById('movie-year').value = m.year || 2025;
+      document.getElementById('movie-rating').value = m.rating || 8.5;
+      document.getElementById('movie-duration').value = m.duration || '';
+      document.getElementById('movie-poster').value = m.poster || '';
+      document.getElementById('movie-banner').value = m.banner || '';
+      fillQualities('movie', m);
+      // Show the single link only for legacy items that have no qualities
+      document.getElementById('movie-stream').value = (m.qualities && m.qualities.length) ? '' : (m.streamUrl || '');
+      document.getElementById('movie-modal').style.display = 'flex';
+    }
+
     function openAddSeriesModal() {
       document.getElementById('series-form').reset();
       document.getElementById('series-modal').style.display = 'flex';
@@ -411,8 +507,62 @@
 
     function openAddEpisodeModal(seriesId) {
       document.getElementById('ep-series-id').value = seriesId;
+      document.getElementById('ep-id').value = '';
+      document.getElementById('episode-modal-title').innerText = 'Add Episode to Series';
       document.getElementById('episode-form').reset();
+      document.getElementById('episodes-modal').style.display = 'none';
       document.getElementById('episode-modal').style.display = 'flex';
+    }
+
+    function openEpisodesModal(seriesId) {
+      activeSeriesId = seriesId;
+      const ser = series.find(x => (x._id || x.id) === seriesId);
+      const eps = ((ser && ser.episodes) || []).slice().sort((a, b) => (a.season - b.season) || (a.episodeNumber - b.episodeNumber));
+      document.getElementById('episodes-modal-title').innerText = ser ? `Episodes - ${ser.title}` : 'Episodes';
+      document.getElementById('episodes-list').innerHTML = eps.length ? eps.map(e => {
+        const eid = e._id || e.id;
+        return `
+          <div class="ep-row">
+            <div style="min-width:0;">
+              <div class="ep-title">S${esc(e.season)} E${esc(e.episodeNumber)} - ${esc(e.title)}</div>
+              <div class="ep-meta">${qualityBadges(e)}</div>
+            </div>
+            <div style="white-space:nowrap;">
+              <button class="secondary" style="padding: 4px 8px; font-size: 11px;" onclick="editEpisode('${eid}')">Edit</button>
+              <button class="danger" style="padding: 4px 8px; font-size: 11px;" onclick="deleteEpisode('${eid}')">Del</button>
+            </div>
+          </div>`;
+      }).join('') : '<p style="color: var(--text-muted); font-size: 13px; padding: 12px 0;">No episodes yet.</p>';
+      document.getElementById('episodes-modal').style.display = 'flex';
+    }
+
+    function openEpisodeFromList() {
+      openAddEpisodeModal(activeSeriesId);
+    }
+
+    function editEpisode(epId) {
+      const ser = series.find(x => (x._id || x.id) === activeSeriesId);
+      const e = ((ser && ser.episodes) || []).find(x => (x._id || x.id) === epId);
+      if (!e) return;
+      document.getElementById('episode-form').reset();
+      document.getElementById('ep-series-id').value = activeSeriesId;
+      document.getElementById('ep-id').value = epId;
+      document.getElementById('episode-modal-title').innerText = 'Edit Episode';
+      document.getElementById('ep-season').value = e.season || 1;
+      document.getElementById('ep-num').value = e.episodeNumber || 1;
+      document.getElementById('ep-title').value = e.title || '';
+      document.getElementById('ep-thumb').value = e.thumbnail || '';
+      fillQualities('ep', e);
+      document.getElementById('ep-stream').value = (e.qualities && e.qualities.length) ? '' : (e.streamUrl || '');
+      document.getElementById('episodes-modal').style.display = 'none';
+      document.getElementById('episode-modal').style.display = 'flex';
+    }
+
+    async function deleteEpisode(epId) {
+      if (!confirm('Delete this episode?')) return;
+      await fetch(`/api/episodes/${epId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      await loadData();
+      openEpisodesModal(activeSeriesId);
     }
 
     function closeModals() {
@@ -431,8 +581,13 @@
         duration: document.getElementById('movie-duration').value,
         poster: document.getElementById('movie-poster').value,
         banner: document.getElementById('movie-banner').value,
-        streamUrl: document.getElementById('movie-stream').value
+        streamUrl: document.getElementById('movie-stream').value.trim(),
+        qualities: readQualities('movie')
       };
+      if (!payload.qualities.length && !payload.streamUrl) {
+        alert('Add at least one video link (480p / 720p / 1080p).');
+        return;
+      }
 
       const url = id ? `/api/movies/${id}` : '/api/movies';
       const method = id ? 'PUT' : 'POST';
@@ -449,7 +604,7 @@
         closeModals();
         loadData();
       } else {
-        alert('Failed to save movie');
+        alert(await errorMessage(res, 'Failed to save movie'));
       }
     }
 
@@ -487,11 +642,17 @@
         episodeNumber: parseInt(document.getElementById('ep-num').value) || 1,
         title: document.getElementById('ep-title').value,
         thumbnail: document.getElementById('ep-thumb').value,
-        streamUrl: document.getElementById('ep-stream').value
+        streamUrl: document.getElementById('ep-stream').value.trim(),
+        qualities: readQualities('ep')
       };
+      if (!payload.qualities.length && !payload.streamUrl) {
+        alert('Add at least one video link (480p / 720p / 1080p).');
+        return;
+      }
 
-      const res = await fetch('/api/episodes', {
-        method: 'POST',
+      const epId = document.getElementById('ep-id').value;
+      const res = await fetch(epId ? `/api/episodes/${epId}` : '/api/episodes', {
+        method: epId ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
@@ -500,9 +661,10 @@
       });
       if (res.ok) {
         closeModals();
-        loadData();
+        await loadData();
+        openEpisodesModal(payload.seriesId);
       } else {
-        alert('Failed to add episode');
+        alert(await errorMessage(res, 'Failed to save episode'));
       }
     }
 
