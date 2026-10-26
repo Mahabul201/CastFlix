@@ -7,6 +7,7 @@ import com.example.data.local.FavoriteEntity
 import com.example.data.local.WatchHistoryEntity
 import com.example.data.local.WatchlistEntity
 import com.example.data.model.AppNotification
+import com.example.data.model.AppUpdateInfo
 import com.example.data.model.Episode
 import com.example.data.model.HomeResponse
 import com.example.data.model.MediaItem
@@ -177,6 +178,31 @@ class StreamRepository(private val context: Context) {
     }
   }
 
+  /** Same as [fetchNotifications] but returns null when the server could not be reached. */
+  suspend fun fetchNotificationsOrNull(): List<AppNotification>? = withContext(Dispatchers.IO) {
+    try {
+      apiService.getNotifications()
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  /** Newest published app version, or null when the server could not be reached. */
+  suspend fun fetchUpdateInfo(): AppUpdateInfo? = withContext(Dispatchers.IO) {
+    try {
+      apiService.getUpdate()
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  /** Update version code the user chose to skip ("Later" on a non-forced update). */
+  fun getSkippedUpdateCode(): Int = prefs.getInt("skippedUpdateCode", 0)
+
+  fun setSkippedUpdateCode(code: Int) {
+    prefs.edit().putInt("skippedUpdateCode", code).apply()
+  }
+
   /** Time (ms) of the newest notification the user has already been told about. */
   fun getLastSeenNotificationAt(): Long = prefs.getLong("lastSeenNotificationAt", -1L)
 
@@ -279,6 +305,8 @@ class StreamRepository(private val context: Context) {
       subtitleColor = prefs.getString("subtitleColor", "WHITE") ?: "WHITE",
       parentalLock = prefs.getBoolean("parentalLock", false),
       parentalPin = prefs.getString("parentalPin", "0000") ?: "0000",
+      notificationsEnabled = prefs.getBoolean("notificationsEnabled", true),
+      autoCheckUpdate = prefs.getBoolean("autoCheckUpdate", true),
       backendUrl = ApiConstants.DEFAULT_KOYEB_FQDN
     )
   }
@@ -302,6 +330,8 @@ class StreamRepository(private val context: Context) {
       .putString("subtitleColor", s.subtitleColor)
       .putBoolean("parentalLock", s.parentalLock)
       .putString("parentalPin", s.parentalPin)
+      .putBoolean("notificationsEnabled", s.notificationsEnabled)
+      .putBoolean("autoCheckUpdate", s.autoCheckUpdate)
       .putString("backendUrl", s.backendUrl)
       .apply()
   }
