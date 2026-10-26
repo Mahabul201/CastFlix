@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.layout.navigationBarsPadding
+import com.example.ui.theme.Dimens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -57,14 +59,16 @@ fun SeeAllScreen(
     LazyVerticalGrid(
       columns = GridCells.Adaptive(minSize = 130.dp),
       contentPadding = PaddingValues(
-        start = 16.dp,
-        end = 16.dp,
+        start = Dimens.ScreenHorizontal,
+        end = Dimens.ScreenHorizontal,
         top = paddingValues.calculateTopPadding() + 8.dp,
-        bottom = 24.dp
+        bottom = Dimens.ScreenBottom
       ),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
+      horizontalArrangement = Arrangement.spacedBy(Dimens.GridGap),
       verticalArrangement = Arrangement.spacedBy(14.dp),
-      modifier = Modifier.fillMaxSize()
+      modifier = Modifier
+        .fillMaxSize()
+        .navigationBarsPadding()
     ) {
       items(items) { media ->
         MediaPosterCard(
