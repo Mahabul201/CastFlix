@@ -57,6 +57,14 @@ import com.example.data.model.MediaItem
 import com.example.data.repository.StreamRepository
 import com.example.ui.components.MediaPosterCard
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.border
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +75,7 @@ fun SearchScreen(
   var searchQuery by remember { mutableStateOf("") }
   var selectedFilter by remember { mutableStateOf("All") }
   var searchResults by remember { mutableStateOf<List<MediaItem>>(emptyList()) }
+  var isFocused by remember { mutableStateOf(false) }
   val coroutineScope = rememberCoroutineScope()
 
   val filters = listOf("All", "Movies", "Web Series", "Anime")
@@ -84,33 +93,63 @@ fun SearchScreen(
   ) {
     Spacer(modifier = Modifier.height(Dimens.ScreenTop))
 
-    // Search Bar
-    OutlinedTextField(
-      value = searchQuery,
-      onValueChange = { searchQuery = it },
+    // Compact search bar (44dp instead of the old 56dp+ field)
+    Row(
       modifier = Modifier
         .fillMaxWidth()
+        .height(44.dp)
+        .clip(RoundedCornerShape(22.dp))
+        .background(MaterialTheme.colorScheme.surfaceVariant)
+        .border(
+          width = 1.dp,
+          color = if (isFocused) MaterialTheme.colorScheme.primary
+          else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+          shape = RoundedCornerShape(22.dp)
+        )
+        .padding(horizontal = 14.dp)
         .testTag("search_input_field"),
-      placeholder = { Text("Search movies, web series, genres...") },
-      leadingIcon = {
-        Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
-      },
-      trailingIcon = {
-        if (searchQuery.isNotEmpty()) {
-          IconButton(onClick = { searchQuery = "" }) {
-            Icon(Icons.Default.Clear, contentDescription = "Clear search")
-          }
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      Icon(
+        Icons.Default.Search,
+        contentDescription = "Search",
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.size(20.dp)
+      )
+      Spacer(modifier = Modifier.width(10.dp))
+      Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+        if (searchQuery.isEmpty()) {
+          Text(
+            "Search movies, series, anime…",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+          )
         }
-      },
-      shape = RoundedCornerShape(28.dp),
-      colors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = MaterialTheme.colorScheme.primary,
-        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
-      ),
-      singleLine = true
-    )
+        BasicTextField(
+          value = searchQuery,
+          onValueChange = { searchQuery = it },
+          singleLine = true,
+          textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp),
+          cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+          keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+          modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused = it.isFocused }
+        )
+      }
+      if (searchQuery.isNotEmpty()) {
+        Icon(
+          Icons.Default.Clear,
+          contentDescription = "Clear search",
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier
+            .size(20.dp)
+            .clip(CircleShape)
+            .clickable { searchQuery = "" }
+        )
+      }
+    }
 
     Spacer(modifier = Modifier.height(12.dp))
 
@@ -191,7 +230,10 @@ fun SearchScreen(
             tint = Color.Gray.copy(alpha = 0.5f)
           )
           Spacer(modifier = Modifier.height(8.dp))
-          Text("No titles match '$searchQuery'", color = Color.Gray)
+          Text(
+            if (searchQuery.isBlank()) "Nothing to show yet" else "No titles match '$searchQuery'",
+            color = Color.Gray
+          )
         }
       }
     } else {
