@@ -215,6 +215,10 @@ fun MainAppContent(
         activePlayerMedia = media
         activePlayerPosition = pos
         activePlayerEpisode = episode
+      },
+      onOpenMedia = { item -> detailMedia = item },
+      onSaveProgress = { m, pos, dur, ep ->
+        coroutineScope.launch { repository.saveWatchProgress(m, pos, dur, ep) }
       }
     )
     return
@@ -296,9 +300,13 @@ fun MainAppContent(
           NavigationTab.HOME -> HomeScreen(
             repository = repository,
             onPlayMedia = { media, pos ->
-              activePlayerMedia = media
-              activePlayerPosition = pos
-              activePlayerEpisode = media.episodes.firstOrNull()
+              if (pos == 0L) {
+                detailMedia = media
+              } else {
+                activePlayerMedia = media
+                activePlayerPosition = pos
+                activePlayerEpisode = media.episodes.firstOrNull()
+              }
             },
             onOpenDetails = { media -> detailMedia = media },
             onOpenHistory = { showHistory = true },
