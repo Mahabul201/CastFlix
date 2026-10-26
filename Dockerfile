@@ -1,15 +1,13 @@
-# Koyeb root-level Dockerfile: builds the Node.js backend in /backend
-FROM node:20-alpine
-
-WORKDIR /app
-
-COPY backend/package*.json ./
-RUN npm install --omit=dev
-
-COPY backend/ ./
-
-ENV NODE_ENV=production
-ENV PORT=8000
-EXPOSE 8000
-
-CMD ["node", "server.js"]
+node_modules
+backend/node_modules
+.env
+backend/.env
+npm-debug.log
+.git
+.github
+app
+gradle
+*.gradle.kts
+gradle.properties
+metadata.json
+*.md
