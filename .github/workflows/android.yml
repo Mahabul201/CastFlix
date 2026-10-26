@@ -45,8 +45,9 @@ jobs:
             -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      # Release keystore: use repo secrets if set, otherwise generate a throwaway
-      # one so the release APK is still installable (but NOT upgradable across builds).
+      # Release keystore: ALWAYS the same key, so new APKs install as an update
+      # over the old app (keeps your data). Uses repo secrets if set, otherwise
+      # the castflix-release.jks committed in the repo root.
       - name: Prepare release keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -57,16 +58,12 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             echo "STORE_PASSWORD=$STORE_PASSWORD_SECRET" >> "$GITHUB_ENV"
             echo "KEY_PASSWORD=$KEY_PASSWORD_SECRET" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
           else
-            echo "::warning::No KEYSTORE_BASE64 secret set - using a temporary keystore."
-            keytool -genkeypair -keystore "$RUNNER_TEMP/release.jks" \
-              -storepass android123 -keypass android123 \
-              -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=URL Stream,O=URL Stream,C=US"
-            echo "STORE_PASSWORD=android123" >> "$GITHUB_ENV"
-            echo "KEY_PASSWORD=android123" >> "$GITHUB_ENV"
+            echo "STORE_PASSWORD=castflix123" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=castflix123" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PATH=$GITHUB_WORKSPACE/castflix-release.jks" >> "$GITHUB_ENV"
           fi
-          echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       - name: Build release APK
         run: gradle assembleRelease --stacktrace --no-daemon
@@ -99,4 +96,3 @@ jobs:
           path: dist/CastFlix.apk
           retention-days: 1
           if-no-files-found: error
-          
