@@ -13,7 +13,7 @@ interface HistoryDao {
   @Query("SELECT * FROM watch_history ORDER BY updatedAt DESC")
   fun getAllHistory(): Flow<List<WatchHistoryEntity>>
 
-  @Query("SELECT * FROM watch_history WHERE mediaId = :mediaId LIMIT 1")
+  @Query("SELECT * FROM watch_history WHERE mediaId = :mediaId ORDER BY updatedAt DESC LIMIT 1")
   suspend fun getHistoryForMedia(mediaId: String): WatchHistoryEntity?
 
   @Insert(onConflict = OnConflictStrategy.REPLACE)
