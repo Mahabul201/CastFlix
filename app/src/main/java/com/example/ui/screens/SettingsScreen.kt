@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.example.ui.theme.Dimens
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -85,11 +88,13 @@ fun SettingsScreen(
   LazyColumn(
     modifier = Modifier
       .fillMaxSize()
-      .padding(horizontal = 16.dp)
-      .testTag("settings_screen")
+      .statusBarsPadding()
+      .padding(horizontal = Dimens.ScreenHorizontal)
+      .testTag("settings_screen"),
+    contentPadding = PaddingValues(bottom = Dimens.ScreenBottom)
   ) {
     item {
-      Spacer(modifier = Modifier.height(16.dp))
+      Spacer(modifier = Modifier.height(Dimens.ScreenTop))
       Text(
         text = "Settings",
         style = MaterialTheme.typography.headlineMedium,
