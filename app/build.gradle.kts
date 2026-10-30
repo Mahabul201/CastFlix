@@ -119,6 +119,8 @@ dependencies {
   implementation(libs.media3.ui)
   implementation(libs.media3.exoplayer.hls)
   implementation(libs.media3.common)
+  // Software decoder for AC3 / E-AC3 / DTS / TrueHD audio so every language track plays
+  implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.5.1+1")
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
