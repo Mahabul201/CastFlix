@@ -67,7 +67,11 @@ jobs:
           fi
 
       - name: Build release APK
-        run: gradle assembleRelease --stacktrace --no-daemon
+        run: gradle assembleRelease --no-daemon --console=plain 2>&1 | tee build.log; test ${PIPESTATUS[0]} -eq 0
+
+      - name: Show real error
+        if: failure()
+        run: grep -E "^e: |^w: .*error|What went wrong|Execution failed|> " -A4 build.log | head -80
 
       - name: Rename APK
         run: |
@@ -97,3 +101,4 @@ jobs:
           path: dist/CastFlix.apk
           retention-days: 1
           if-no-files-found: error
+          
