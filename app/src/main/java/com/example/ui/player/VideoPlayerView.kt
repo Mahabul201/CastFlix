@@ -658,11 +658,11 @@ fun VideoPlayerScreen(
           // Center: rewind, restart, play/pause, forward, next
           Row(
             modifier = Modifier.align(Alignment.Center),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
-            PlayerIconButton(Icons.Default.FastRewind, "Rewind 10s", 56.dp, 36.dp) { seekBy(-10_000) }
-            PlayerIconButton(Icons.Default.Replay, "Restart", 56.dp, 36.dp) {
+            PlayerIconButton(Icons.Default.FastRewind, "Rewind 10s", 44.dp, 28.dp) { seekBy(-10_000) }
+            PlayerIconButton(Icons.Default.Replay, "Restart", 44.dp, 28.dp) {
               exoPlayer.seekTo(0L)
               currentPosition = 0L
               exoPlayer.play()
@@ -670,18 +670,18 @@ fun VideoPlayerScreen(
             PlayerIconButton(
               icon = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
               description = if (isPlaying) "Pause" else "Play",
-              box = 72.dp,
-              iconSize = 52.dp,
+              box = 56.dp,
+              iconSize = 40.dp,
               modifier = Modifier.testTag("player_play_pause_button")
             ) {
               if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
             }
-            PlayerIconButton(Icons.Default.FastForward, "Forward 10s", 56.dp, 36.dp) { seekBy(10_000) }
+            PlayerIconButton(Icons.Default.FastForward, "Forward 10s", 44.dp, 28.dp) { seekBy(10_000) }
             PlayerIconButton(
               icon = Icons.Default.SkipNext,
               description = "Next episode",
-              box = 56.dp,
-              iconSize = 36.dp,
+              box = 44.dp,
+              iconSize = 28.dp,
               modifier = Modifier.alpha(if (nextEpisode != null) 1f else 0.35f)
             ) {
               nextEpisode?.let { currentEpisode = it }
@@ -693,8 +693,8 @@ fun VideoPlayerScreen(
             modifier = Modifier
               .fillMaxWidth()
               .align(Alignment.BottomCenter)
-              .padding(horizontal = 16.dp)
-              .padding(bottom = 6.dp)
+              .padding(horizontal = 12.dp)
+              .padding(bottom = 2.dp)
           ) {
             val fraction = if (totalDuration > 0) {
               (currentPosition.toFloat() / totalDuration).coerceIn(0f, 1f)
@@ -715,7 +715,7 @@ fun VideoPlayerScreen(
                 activeTrackColor = Color.White,
                 inactiveTrackColor = Color.White.copy(alpha = 0.35f)
               ),
-              modifier = Modifier.fillMaxWidth()
+              modifier = Modifier.fillMaxWidth().height(20.dp)
             )
 
             Row(
@@ -725,17 +725,17 @@ fun VideoPlayerScreen(
               Text(
                 formatTimeMs(currentPosition),
                 color = Color.White,
-                fontSize = 14.sp
+                fontSize = 11.sp
               )
               Text(
                 "  ·  ",
                 color = Color.White.copy(alpha = 0.5f),
-                fontSize = 14.sp
+                fontSize = 11.sp
               )
               Text(
                 formatTimeMs(totalDuration),
                 color = Color.White.copy(alpha = 0.6f),
-                fontSize = 14.sp
+                fontSize = 11.sp
               )
 
               Spacer(modifier = Modifier.weight(1f))
@@ -852,8 +852,8 @@ private fun PlayerIconButton(
 
 @Composable
 private fun SmallControl(icon: ImageVector, description: String, onClick: () -> Unit) {
-  IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
-    Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(26.dp))
+  IconButton(onClick = onClick, modifier = Modifier.size(34.dp)) {
+    Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(20.dp))
   }
 }
 
