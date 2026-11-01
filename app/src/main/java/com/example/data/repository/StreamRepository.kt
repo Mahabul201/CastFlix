@@ -248,4 +248,132 @@ class StreamRepository(private val context: Context) {
   }
 
   // Latest saved progress for a title (for a series: the episode watched last)
-  suspend fun getLastProgress(mediaId: String): WatchHistoryEntity? =����������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������������
+  suspend fun getLastProgress(mediaId: String): WatchHistoryEntity? = withContext(Dispatchers.IO) {
+    historyDao.getHistoryForMedia(mediaId)
+  }
+
+  // Favorites
+  fun isFavoriteFlow(mediaId: String): Flow<Boolean> = favoriteDao.isFavoriteFlow(mediaId)
+
+  suspend fun toggleFavorite(media: MediaItem) = withContext(Dispatchers.IO) {
+    if (favoriteDao.isFavorite(media.id)) {
+      favoriteDao.removeFavorite(media.id)
+    } else {
+      favoriteDao.insertFavorite(
+        FavoriteEntity(
+          mediaId = media.id,
+          title = media.title,
+          poster = media.poster,
+          banner = media.banner,
+          category = media.category,
+          year = media.year,
+          rating = media.rating,
+          streamUrl = media.streamUrl,
+          isSeries = media.isSeries
+        )
+      )
+    }
+  }
+
+  // Watchlist
+  fun isWatchlistFlow(mediaId: String): Flow<Boolean> = watchlistDao.isWatchlistFlow(mediaId)
+
+  suspend fun toggleWatchlist(media: MediaItem, isAdded: Boolean) = withContext(Dispatchers.IO) {
+    if (isAdded) {
+      watchlistDao.removeWatchlist(media.id)
+    } else {
+      watchlistDao.insertWatchlist(
+        WatchlistEntity(
+          mediaId = media.id,
+          title = media.title,
+          poster = media.poster,
+          banner = media.banner,
+          category = media.category,
+          year = media.year,
+          rating = media.rating,
+          streamUrl = media.streamUrl,
+          isSeries = media.isSeries
+        )
+      )
+    }
+  }
+
+  // Settings
+  fun getSettings(): StreamSettings = _settings.value
+
+  fun updateSettings(newSettings: StreamSettings) {
+    _settings.value = newSettings
+    saveSettings(newSettings)
+    if (newSettings.backendUrl != apiService.javaClass.name) {
+      apiService = StreamApiService.create(newSettings.backendUrl)
+    }
+  }
+
+  private fun loadSettings(): StreamSettings {
+    return StreamSettings(
+      themeMode = prefs.getString("themeMode", "DARK") ?: "DARK",
+      accentColor = prefs.getString("accentColor", "CINEMA_RED") ?: "CINEMA_RED",
+      viewMode = prefs.getString("viewMode", "GRID") ?: "GRID",
+      defaultSpeed = prefs.getFloat("defaultSpeed", 1.0f),
+      autoplayNext = prefs.getBoolean("autoplayNext", true),
+      skipIntro = prefs.getBoolean("skipIntro", true),
+      keepScreenOn = prefs.getBoolean("keepScreenOn", true),
+      backgroundPlay = prefs.getBoolean("backgroundPlay", false),
+      volumeBoost = prefs.getBoolean("volumeBoost", false),
+      defaultAspectRatio = prefs.getString("defaultAspectRatio", "FIT") ?: "FIT",
+      pipMode = prefs.getBoolean("pipMode", true),
+      wifiOnlyDownload = prefs.getBoolean("wifiOnlyDownload", false),
+      maxParallelDownloads = prefs.getInt("maxParallelDownloads", 2),
+      subtitleSize = prefs.getString("subtitleSize", "MEDIUM") ?: "MEDIUM",
+      subtitleColor = prefs.getString("subtitleColor", "WHITE") ?: "WHITE",
+      parentalLock = prefs.getBoolean("parentalLock", false),
+      parentalPin = prefs.getString("parentalPin", "0000") ?: "0000",
+      notificationsEnabled = prefs.getBoolean("notificationsEnabled", true),
+      autoCheckUpdate = prefs.getBoolean("autoCheckUpdate", true),
+      backendUrl = ApiConstants.DEFAULT_KOYEB_FQDN
+    )
+  }
+
+  private fun saveSettings(s: StreamSettings) {
+    prefs.edit()
+      .putString("themeMode", s.themeMode)
+      .putString("accentColor", s.accentColor)
+      .putString("viewMode", s.viewMode)
+      .putFloat("defaultSpeed", s.defaultSpeed)
+      .putBoolean("autoplayNext", s.autoplayNext)
+      .putBoolean("skipIntro", s.skipIntro)
+      .putBoolean("keepScreenOn", s.keepScreenOn)
+      .putBoolean("backgroundPlay", s.backgroundPlay)
+      .putBoolean("volumeBoost", s.volumeBoost)
+      .putString("defaultAspectRatio", s.defaultAspectRatio)
+      .putBoolean("pipMode", s.pipMode)
+      .putBoolean("wifiOnlyDownload", s.wifiOnlyDownload)
+      .putInt("maxParallelDownloads", s.maxParallelDownloads)
+      .putString("subtitleSize", s.subtitleSize)
+      .putString("subtitleColor", s.subtitleColor)
+      .putBoolean("parentalLock", s.parentalLock)
+      .putString("parentalPin", s.parentalPin)
+      .putBoolean("notificationsEnabled", s.notificationsEnabled)
+      .putBoolean("autoCheckUpdate", s.autoCheckUpdate)
+      .putString("backendUrl", s.backendUrl)
+      .apply()
+  }
+
+  // Profile
+  fun updateUserProfile(profile: UserProfile) {
+    _userProfile.value = profile
+    prefs.edit()
+      .putString("profile_name", profile.name)
+      .putString("profile_username", profile.username)
+      .putInt("profile_avatar", profile.avatarIndex)
+      .apply()
+  }
+
+  private fun loadUserProfile(): UserProfile {
+    return UserProfile(
+      name = prefs.getString("profile_name", "Movie Fan") ?: "Movie Fan",
+      username = prefs.getString("profile_username", "streamer_pro") ?: "streamer_pro",
+      avatarIndex = prefs.getInt("profile_avatar", 0)
+    )
+  }
+}
