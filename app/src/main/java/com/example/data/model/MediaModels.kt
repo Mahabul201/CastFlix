@@ -1,0 +1,122 @@
+package com.example.data.model
+
+import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
+
+/** One playable/downloadable variant of a video, e.g. label "720p". */
+@JsonClass(generateAdapter = true)
+data class VideoQuality(
+  @Json(name = "label") val label: String,
+  @Json(name = "url") val url: String
+)
+
+@JsonClass(generateAdapter = true)
+data class MediaItem(
+  @Json(name = "id") val id: String,
+  @Json(name = "title") val title: String,
+  @Json(name = "description") val description: String,
+  @Json(name = "poster") val poster: String,
+  @Json(name = "banner") val banner: String,
+  @Json(name = "category") val category: String,
+  @Json(name = "tabs") val tabs: List<String> = emptyList(),
+  @Json(name = "year") val year: Int,
+  @Json(name = "rating") val rating: Double,
+  @Json(name = "duration") val duration: String = "120m",
+  @Json(name = "streamUrl") val streamUrl: String = "",
+  @Json(name = "fileName") val fileName: String = "",
+  @Json(name = "qualities") val qualities: List<VideoQuality> = emptyList(),
+  @Json(name = "isSeries") val isSeries: Boolean = false,
+  @Json(name = "isAnime") val isAnime: Boolean = false,
+  @Json(name = "episodes") val episodes: List<Episode> = emptyList(),
+  @Json(name = "createdAt") val createdAt: Long = System.currentTimeMillis()
+)
+
+@JsonClass(generateAdapter = true)
+data class Episode(
+  @Json(name = "id") val id: String,
+  @Json(name = "seriesId") val seriesId: String,
+  @Json(name = "season") val season: Int,
+  @Json(name = "episodeNumber") val episodeNumber: Int,
+  @Json(name = "title") val title: String,
+  @Json(name = "thumbnail") val thumbnail: String,
+  @Json(name = "streamUrl") val streamUrl: String,
+  @Json(name = "fileName") val fileName: String = "",
+  @Json(name = "qualities") val qualities: List<VideoQuality> = emptyList(),
+  @Json(name = "duration") val duration: String = "45m"
+)
+
+@JsonClass(generateAdapter = true)
+data class HomeResponse(
+  @Json(name = "featured") val featured: List<MediaItem>,
+  @Json(name = "recentlyAdded") val recentlyAdded: List<MediaItem>,
+  @Json(name = "movies") val movies: List<MediaItem>,
+  @Json(name = "series") val series: List<MediaItem>,
+  @Json(name = "anime") val anime: List<MediaItem> = emptyList(),
+  @Json(name = "trending") val trending: List<MediaItem> = emptyList(),
+  @Json(name = "tabItems") val tabItems: Map<String, List<MediaItem>> = emptyMap(),
+  @Json(name = "categories") val categories: List<String>
+)
+
+/** A message the admin sent from the admin panel. */
+@JsonClass(generateAdapter = true)
+data class AppNotification(
+  @Json(name = "id") val id: String,
+  @Json(name = "title") val title: String,
+  @Json(name = "message") val message: String,
+  @Json(name = "imageUrl") val imageUrl: String = "",
+  @Json(name = "link") val link: String = "",
+  @Json(name = "createdAt") val createdAt: Long = 0L
+)
+
+/** Newest app version published from the admin panel. versionCode 0 = nothing published. */
+@JsonClass(generateAdapter = true)
+data class AppUpdateInfo(
+  @Json(name = "versionCode") val versionCode: Int = 0,
+  @Json(name = "versionName") val versionName: String = "",
+  @Json(name = "apkUrl") val apkUrl: String = "",
+  @Json(name = "changelog") val changelog: String = "",
+  @Json(name = "force") val force: Boolean = false,
+  @Json(name = "createdAt") val createdAt: Long = 0L
+)
+
+data class UserProfile(
+  val name: String = "Movie Fan",
+  val username: String = "streamer_pro",
+  val avatarIndex: Int = 0
+)
+
+data class StreamSettings(
+  val themeMode: String = "DARK",
+  val accentColor: String = "CINEMA_RED",
+  val viewMode: String = "GRID",
+  val defaultSpeed: Float = 1.0f,
+  val autoplayNext: Boolean = true,
+  val skipIntro: Boolean = true,
+  val keepScreenOn: Boolean = true,
+  val backgroundPlay: Boolean = false,
+  val volumeBoost: Boolean = false,
+  val defaultAspectRatio: String = "FIT",
+  val pipMode: Boolean = true,
+  val wifiOnlyDownload: Boolean = false,
+  val maxParallelDownloads: Int = 2,
+  val subtitleSize: String = "MEDIUM",
+  val subtitleColor: String = "WHITE",
+  val parentalLock: Boolean = false,
+  val parentalPin: String = "0000",
+  val notificationsEnabled: Boolean = true,
+  val autoCheckUpdate: Boolean = true,
+  val backendUrl: String = "https://gastric-rasla-evamusic-01582837.koyeb.app"
+)
+
+/**
+ * Where the watch page should start. Set when the user taps a history row or leaves the
+ * fullscreen player, so the page does not depend on the database write having finished.
+ * For movies [season] and [episodeNumber] are null.
+ */
+data class ResumePoint(
+  val mediaId: String,
+  val season: Int? = null,
+  val episodeNumber: Int? = null,
+  val positionMs: Long = 0L,
+  val durationMs: Long = 0L
+)
