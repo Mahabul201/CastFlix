@@ -91,7 +91,6 @@ data class StreamSettings(
   val viewMode: String = "GRID",
   val defaultSpeed: Float = 1.0f,
   val autoplayNext: Boolean = true,
-  val streamtapeAds: Boolean = true,
   val skipIntro: Boolean = true,
   val keepScreenOn: Boolean = true,
   val backgroundPlay: Boolean = false,
