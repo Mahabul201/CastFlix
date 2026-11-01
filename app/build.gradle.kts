@@ -119,7 +119,6 @@ dependencies {
   implementation(libs.media3.ui)
   implementation(libs.media3.exoplayer.hls)
   implementation(libs.media3.common)
-  implementation("com.google.android.gms:play-services-ads:23.6.0")
   // Software decoder for AC3 / E-AC3 / DTS / TrueHD audio so every language track plays
   implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")
   implementation(libs.converter.moshi)
