@@ -10,8 +10,8 @@ object Dimens {
   /** Space between the status bar (or the page title area) and the first element. */
   val ScreenTop = 16.dp
 
-  /** Extra space at the end of a scrolling list (the bottom bar is already inset by Scaffold). */
-  val ScreenBottom = 24.dp
+  /** Extra space at the end of a scrolling list (leaves room for the floating glass bottom bar). */
+  val ScreenBottom = 110.dp
 
   /** Gap between cards in a row / column / grid. */
   val GridGap = 12.dp
