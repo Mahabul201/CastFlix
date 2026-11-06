@@ -50,4 +50,31 @@ object AdConfig {
 
   /** Height of the in-page ad strips (dp). */
   const val STRIP_AD_HEIGHT_DP = 120
+
+  // ---- Ad strips between the rows on the Home screen ----
+  const val HOME_ROW_ADS_ENABLED = true
+
+  /** After the "Movies" row. */
+  const val HOME_MOVIES_ZONE_ID = 12203903L
+  const val HOME_MOVIES_SCRIPT_SRC = "https://al5sm.com/tag.min.js"
+
+  /** After "Web Series > Recently Added". */
+  const val HOME_SERIES_ZONE_ID = 12203920L
+  const val HOME_SERIES_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
+
+  /** After "Anime > Recently Added". */
+  const val HOME_ANIME_ZONE_ID = 12203924L
+  const val HOME_ANIME_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
+
+  /** After "K-Drama > Recently Added". */
+  const val HOME_KDRAMA_ZONE_ID = 12203925L
+  const val HOME_KDRAMA_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
+
+  /** At the very bottom of Home (there is no Cartoon section yet). */
+  const val HOME_CARTOON_ZONE_ID = 12203927L
+  const val HOME_CARTOON_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
+
+  /** After "Regional Movies" (the South Indian row sits in there). */
+  const val HOME_SOUTH_ZONE_ID = 12203986L
+  const val HOME_SOUTH_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
 }
