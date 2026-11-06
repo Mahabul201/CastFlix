@@ -6,6 +6,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -39,10 +40,20 @@ fun AdWebView(
     """.trimIndent()
   }
 
+  // Keep a reference so the WebView is destroyed when the ad leaves the screen
+  val webViewHolder = remember { arrayOfNulls<WebView>(1) }
+  DisposableEffect(Unit) {
+    onDispose {
+      webViewHolder[0]?.destroy()
+      webViewHolder[0] = null
+    }
+  }
+
   AndroidView(
     modifier = modifier,
     factory = { ctx ->
       WebView(ctx).apply {
+        webViewHolder[0] = this
         setBackgroundColor(android.graphics.Color.TRANSPARENT)
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -70,7 +81,6 @@ fun AdWebView(
         }
         loadDataWithBaseURL("https://castflix.app/", html, "text/html", "utf-8", null)
       }
-    },
-    onRelease = { it.destroy() }
+    }
   )
 }
