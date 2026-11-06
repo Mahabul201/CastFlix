@@ -62,8 +62,8 @@ object AdConfig {
   const val HOME_ROW_ADS_ENABLED = true
 
   /** After the "Movies" row. */
-  const val HOME_MOVIES_ZONE_ID = 12203903L
-  const val HOME_MOVIES_SCRIPT_SRC = "https://al5sm.com/tag.min.js"
+  const val HOME_MOVIES_ZONE_ID = 12203927L
+  const val HOME_MOVIES_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
 
   /** After "Web Series > Recently Added". */
   const val HOME_SERIES_ZONE_ID = 12203920L
@@ -78,7 +78,7 @@ object AdConfig {
   const val HOME_KDRAMA_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
 
   /** At the very bottom of Home (there is no Cartoon section yet). */
-  const val HOME_CARTOON_ZONE_ID = 12203927L
+  const val HOME_CARTOON_ZONE_ID = 0L // no ad on the Cartoon tab
   const val HOME_CARTOON_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
 
   /** After "Regional Movies" (the South Indian row sits in there). */
