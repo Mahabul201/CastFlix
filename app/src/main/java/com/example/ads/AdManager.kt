@@ -34,4 +34,15 @@ object AdManager {
       Log.w(TAG, "Interstitial skipped: ${t.message}")
     }
   }
+
+  private var lastPauseAdAt = 0L
+
+  /** True when the "Hydration break" popup may be shown now (respects the minimum gap). */
+  fun shouldShowPauseAd(): Boolean {
+    if (!AdConfig.ADS_ENABLED || !AdConfig.PAUSE_AD_ENABLED || AdConfig.VIGNETTE_ZONE_ID == 0L) return false
+    val now = SystemClock.elapsedRealtime()
+    if (lastPauseAdAt != 0L && now - lastPauseAdAt < AdConfig.PAUSE_AD_MIN_GAP_MS) return false
+    lastPauseAdAt = now
+    return true
+  }
 }
