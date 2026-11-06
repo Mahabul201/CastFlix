@@ -51,7 +51,7 @@ object AdConfig {
   /** Height of the in-page ad strips (dp). */
   const val STRIP_AD_HEIGHT_DP = 120
 
-  // ---- Ad strips between the rows on the Home screen ----
+  // ---- Ad on every Home tab page (Movies, Webseries, Anime, ...), under "Recently Added" ----
   const val HOME_ROW_ADS_ENABLED = true
 
   /** After the "Movies" row. */
@@ -77,4 +77,20 @@ object AdConfig {
   /** After "Regional Movies" (the South Indian row sits in there). */
   const val HOME_SOUTH_ZONE_ID = 12203986L
   const val HOME_SOUTH_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
+
+  /**
+   * The ad for a Home tab page, shown under its "Recently Added" row.
+   * Returns (zone id, script address), or null when that tab has no ad (18+).
+   */
+  fun tabAd(tab: String): Pair<Long, String>? = when (tab) {
+    "Movies" -> HOME_MOVIES_ZONE_ID to HOME_MOVIES_SCRIPT_SRC
+    "Webseries" -> HOME_SERIES_ZONE_ID to HOME_SERIES_SCRIPT_SRC
+    "Anime" -> HOME_ANIME_ZONE_ID to HOME_ANIME_SCRIPT_SRC
+    "KDrama" -> HOME_KDRAMA_ZONE_ID to HOME_KDRAMA_SCRIPT_SRC
+    "Cartoon" -> HOME_CARTOON_ZONE_ID to HOME_CARTOON_SCRIPT_SRC
+    "South Indian" -> HOME_SOUTH_ZONE_ID to HOME_SOUTH_SCRIPT_SRC
+    "18+" -> null
+    // Hollywood, Bollywood, Chinese: use the In-Page Push tag
+    else -> INPAGE_ZONE_ID to INPAGE_SCRIPT_SRC
+  }
 }
