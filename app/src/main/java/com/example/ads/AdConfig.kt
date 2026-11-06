@@ -46,8 +46,8 @@ object AdConfig {
   const val PAUSE_AD_MIN_GAP_MS = 120_000L
 
   /** Tag shown on the movie / series page, under the title card (above "For you"). 0L = off. */
-  const val DETAILS_ZONE_ID = 12203849L
-  const val DETAILS_SCRIPT_SRC = "https://al5sm.com/tag.min.js"
+  const val DETAILS_ZONE_ID = 12202723L
+  const val DETAILS_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
   const val DETAILS_AD_ENABLED = true
 
   /** Tag shown at the top of the Downloads page (Downloading and Downloaded tabs). 0L = off. */
