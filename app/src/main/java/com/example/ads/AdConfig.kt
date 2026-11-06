@@ -18,4 +18,23 @@ object AdConfig {
 
   /** Do ads ke beech minimum gap (milliseconds). 3 min = 180_000. */
   const val MIN_GAP_MS = 180_000L
+
+  // ---- Monetag website tags, shown inside the app through AdWebView ----
+
+  /** In-Page Push tag, shown as a strip on the Home screen under "Recently Played". 0L = off. */
+  const val INPAGE_ZONE_ID = 12203169L
+  const val INPAGE_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
+  const val HOME_AD_ENABLED = true
+  const val HOME_AD_HEIGHT_DP = 120
+
+  /** Vignette Banner tag, shown in the "Hydration break" popup when the video is paused. 0L = off. */
+  const val VIGNETTE_ZONE_ID = 12203161L
+  const val VIGNETTE_SCRIPT_SRC = "https://n6wxm.com/vignette.min.js"
+  const val PAUSE_AD_ENABLED = true
+
+  /** Seconds the video must stay paused before the popup appears. */
+  const val PAUSE_AD_DELAY_MS = 1500L
+
+  /** Minimum gap between two pause popups (milliseconds). 2 min = 120_000. */
+  const val PAUSE_AD_MIN_GAP_MS = 120_000L
 }
