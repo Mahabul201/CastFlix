@@ -1,80 +1,86 @@
 package com.example.ads
 
+import android.annotation.SuppressLint
+import android.content.Intent
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
+
 /**
- * Monetag ad settings. Sirf yahi file edit karni hai.
- *
- * Monetag dashboard -> In-App -> apna Android source -> Interstitial zone banao,
- * aur uska Zone ID niche daalo.
+ * Shows one Monetag website tag (In-Page Push, Vignette Banner, ...) inside a small WebView.
+ * Give it a fixed size with [modifier]. Nothing is drawn when ads are off or the zone id is 0.
+ * Taps on the ad open in the phone's browser.
  */
-object AdConfig {
-  /** Sab ads ek saath band/chalu karne ka switch. */
-  const val ADS_ENABLED = true
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+fun AdWebView(
+  scriptSrc: String,
+  zoneId: Long,
+  modifier: Modifier = Modifier
+) {
+  if (!AdConfig.ADS_ENABLED || zoneId == 0L) return
 
-  /** Monetag dashboard se mila Interstitial Zone ID. 0L = ads off. */
-  const val INTERSTITIAL_ZONE_ID = 0L
+  val html = remember(scriptSrc, zoneId) {
+    """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>html,body{margin:0;padding:0;background:transparent;overflow:hidden}</style>
+    </head>
+    <body>
+      <script>(function(s){s.dataset.zone='$zoneId',s.src='$scriptSrc'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+    </body>
+    </html>
+    """.trimIndent()
+  }
 
-  /** Har kitne Play click par 1 interstitial dikhana hai (2 = har 2nd play). */
-  const val SHOW_EVERY_N_PLAYS = 2
+  // Keep a reference so the WebView is destroyed when the ad leaves the screen
+  val webViewHolder = remember { arrayOfNulls<WebView>(1) }
+  DisposableEffect(Unit) {
+    onDispose {
+      webViewHolder[0]?.destroy()
+      webViewHolder[0] = null
+    }
+  }
 
-  /** Do ads ke beech minimum gap (milliseconds). 3 min = 180_000. */
-  const val MIN_GAP_MS = 180_000L
-
-  // ---- Monetag website tags, shown inside the app through AdWebView ----
-
-  /** In-Page Push tag, shown as a strip on the Home screen under "Recently Played". 0L = off. */
-  const val INPAGE_ZONE_ID = 12203169L
-  const val INPAGE_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
-  const val HOME_AD_ENABLED = true
-  const val HOME_AD_HEIGHT_DP = 120
-
-  /** Vignette Banner tag, shown in the "Hydration break" popup when the video is paused. 0L = off. */
-  const val VIGNETTE_ZONE_ID = 12203161L
-  const val VIGNETTE_SCRIPT_SRC = "https://n6wxm.com/vignette.min.js"
-  const val PAUSE_AD_ENABLED = true
-
-  /** Seconds the video must stay paused before the popup appears. */
-  const val PAUSE_AD_DELAY_MS = 1500L
-
-  /** Minimum gap between two pause popups (milliseconds). 2 min = 120_000. */
-  const val PAUSE_AD_MIN_GAP_MS = 120_000L
-
-  /** Tag shown on the movie / series page, under the title card (above "For you"). 0L = off. */
-  const val DETAILS_ZONE_ID = 12203849L
-  const val DETAILS_SCRIPT_SRC = "https://al5sm.com/tag.min.js"
-  const val DETAILS_AD_ENABLED = true
-
-  /** Tag shown at the top of the Downloads page (Downloading and Downloaded tabs). 0L = off. */
-  const val DOWNLOAD_ZONE_ID = 12203854L
-  const val DOWNLOAD_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
-  const val DOWNLOAD_AD_ENABLED = true
-
-  /** Height of the in-page ad strips (dp). */
-  const val STRIP_AD_HEIGHT_DP = 120
-
-  // ---- Ad strips between the rows on the Home screen ----
-  const val HOME_ROW_ADS_ENABLED = true
-
-  /** After the "Movies" row. */
-  const val HOME_MOVIES_ZONE_ID = 12203903L
-  const val HOME_MOVIES_SCRIPT_SRC = "https://al5sm.com/tag.min.js"
-
-  /** After "Web Series > Recently Added". */
-  const val HOME_SERIES_ZONE_ID = 12203920L
-  const val HOME_SERIES_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
-
-  /** After "Anime > Recently Added". */
-  const val HOME_ANIME_ZONE_ID = 12203924L
-  const val HOME_ANIME_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
-
-  /** After "K-Drama > Recently Added". */
-  const val HOME_KDRAMA_ZONE_ID = 12203925L
-  const val HOME_KDRAMA_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
-
-  /** At the very bottom of Home (there is no Cartoon section yet). */
-  const val HOME_CARTOON_ZONE_ID = 12203927L
-  const val HOME_CARTOON_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
-
-  /** After "Regional Movies" (the South Indian row sits in there). */
-  const val HOME_SOUTH_ZONE_ID = 12203986L
-  const val HOME_SOUTH_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
+  AndroidView(
+    modifier = modifier,
+    factory = { ctx ->
+      WebView(ctx).apply {
+        webViewHolder[0] = this
+        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.javaScriptCanOpenWindowsAutomatically = false
+        // Ads must never take keyboard / back-key focus away from the Compose screen
+        isFocusable = false
+        isFocusableInTouchMode = false
+        descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        isVerticalScrollBarEnabled = false
+        isHorizontalScrollBarEnabled = false
+        webViewClient = object : WebViewClient() {
+          override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+            // A tap on the ad: open the advertiser page in the browser, not inside the app
+            if (request.hasGesture()) {
+              try {
+                ctx.startActivity(
+                  Intent(Intent.ACTION_VIEW, request.url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+              } catch (_: Exception) {
+              }
+              return true
+            }
+            return false
+          }
+        }
+        loadDataWithBaseURL("https://castflix.app/", html, "text/html", "utf-8", null)
+      }
+    }
+  )
 }
