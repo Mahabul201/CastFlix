@@ -21,6 +21,13 @@ object AdConfig {
 
   // ---- Monetag website tags, shown inside the app through AdWebView ----
 
+  /**
+   * The website address the ad tags run under. Monetag only serves a zone on the website it was
+   * created for, so put the SAME address you added in the Monetag dashboard (Websites list),
+   * for example "https://your-app.koyeb.app/".
+   */
+  const val AD_SITE_URL = "https://gastric-rasla-evamusic-01582837.koyeb.app/"
+
   /** In-Page Push tag, shown as a strip on the Home screen under "Recently Played". 0L = off. */
   const val INPAGE_ZONE_ID = 12203169L
   const val INPAGE_SCRIPT_SRC = "https://nap5k.com/tag.min.js"
