@@ -47,6 +47,10 @@ fun AdWebView(
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.javaScriptCanOpenWindowsAutomatically = false
+        // Ads must never take keyboard / back-key focus away from the Compose screen
+        isFocusable = false
+        isFocusableInTouchMode = false
+        descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
         isVerticalScrollBarEnabled = false
         isHorizontalScrollBarEnabled = false
         webViewClient = object : WebViewClient() {
