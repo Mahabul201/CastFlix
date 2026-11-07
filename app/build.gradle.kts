@@ -123,8 +123,7 @@ dependencies {
   implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
-  // Uncomment to use Firestore:
-  // implementation(libs.firebase.firestore)
+  implementation(libs.firebase.firestore)
 
   // Firebase Auth + Google Sign-In via Credential Manager (all four must stay together):
   implementation(libs.firebase.auth)
