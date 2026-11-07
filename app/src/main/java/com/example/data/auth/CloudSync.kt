@@ -52,7 +52,9 @@ object CloudSync {
             throw t
           } catch (t: Throwable) {
             Log.w(TAG, "Sync failed", t)
-            status.value = "Backup error: ${t.message ?: t.javaClass.simpleName}"
+            val reason = t.message ?: t.javaClass.simpleName
+            status.value = "Backup error: $reason\nChecking server…"
+            status.value = "Backup error: $reason\nServer check: ${diagnose(uid)}"
             attempt++
             // Network may not be ready yet right after launch: keep trying with a growing pause
             kotlinx.coroutines.delay(minOf(30_000L, 4_000L * attempt))
@@ -178,6 +180,30 @@ object CloudSync {
       batch.commit().awaitTask()
       known.addAll(toAdd)
       known.removeAll(toRemove)
+    }
+  }
+
+  /** Plain HTTPS call to Firestore (no gRPC) so we can see the real reason when the SDK says "offline". */
+  private suspend fun diagnose(uid: String): String = kotlinx.coroutines.withContext(Dispatchers.IO) {
+    try {
+      val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        ?: return@withContext "not signed in"
+      val token = user.getIdToken(false).awaitTask().token
+      val project = com.google.firebase.FirebaseApp.getInstance().options.projectId
+      val req = okhttp3.Request.Builder()
+        .url("https://firestore.googleapis.com/v1/projects/$project/databases/(default)/documents/users/$uid")
+        .header("Authorization", "Bearer $token")
+        .build()
+      okhttp3.OkHttpClient().newCall(req).execute().use { r ->
+        val body = r.body?.string().orEmpty()
+        val msg = try {
+          org.json.JSONObject(body).getJSONObject("error").getString("message")
+        } catch (_: Exception) { "" }
+        val verdict = if (r.code == 200 || r.code == 404) " (server reachable)" else ""
+        "HTTP ${r.code}$verdict $msg".take(220)
+      }
+    } catch (e: Exception) {
+      "no connection: ${e.javaClass.simpleName} ${e.message ?: ""}".take(220)
     }
   }
 
