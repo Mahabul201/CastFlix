@@ -4,8 +4,29 @@ import android.app.Application
 import co.notix.interstitial.NotixInterstitial
 import com.example.ads.AdConfig
 import com.example.ads.AdManager
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 
-class App : Application() {
+class App : Application(), ImageLoaderFactory {
+  /**
+   * Posters are saved in RAM and on the phone's cache folder. After a poster has loaded once,
+   * it is never downloaded again (even if the server says "no-cache").
+   */
+  override fun newImageLoader(): ImageLoader =
+    ImageLoader.Builder(this)
+      .memoryCache { MemoryCache.Builder(this).maxSizePercent(0.25).build() }
+      .diskCache {
+        DiskCache.Builder()
+          .directory(cacheDir.resolve("poster_cache"))
+          .maxSizeBytes(300L * 1024 * 1024)
+          .build()
+      }
+      .respectCacheHeaders(false)
+      .crossfade(true)
+      .build()
+
   override fun onCreate() {
     super.onCreate()
     initMonetag()
