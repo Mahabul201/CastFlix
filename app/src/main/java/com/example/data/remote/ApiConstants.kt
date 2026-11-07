@@ -2,7 +2,7 @@ package com.example.data.remote
 
 object ApiConstants {
   // Koyeb FQDN configurable here:
-  const val DEFAULT_KOYEB_FQDN = "https://castflix.apps.bot-hosting.cloud"
+  const val DEFAULT_KOYEB_FQDN = "https://castflix201.apps.bot-hosting.cloud"
 
   // Base API routes
   const val ROUTE_HOME = "/api/home"
