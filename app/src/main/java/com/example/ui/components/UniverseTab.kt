@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -91,8 +93,12 @@ fun UniverseTabContent(
         onPlayMedia = onPlayMedia
       )
     } else if (universes.isEmpty() && looseItems.isEmpty()) {
-      Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("No universes yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+      // Scrollable on purpose, so pull-down-to-refresh on Home still works while this is empty
+      Box(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        contentAlignment = Alignment.Center
+      ) {
+        Text("No universes yet - pull down to refresh", color = MaterialTheme.colorScheme.onSurfaceVariant)
       }
     } else {
       LazyVerticalGrid(
