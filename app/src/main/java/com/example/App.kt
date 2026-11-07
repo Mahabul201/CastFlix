@@ -9,6 +9,7 @@ class App : Application() {
   override fun onCreate() {
     super.onCreate()
     initMonetag()
+    com.example.data.auth.AuthManager.init(this)
   }
 
   private fun initMonetag() {
