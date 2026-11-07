@@ -110,7 +110,7 @@ data class StreamSettings(
   val parentalPin: String = "0000",
   val notificationsEnabled: Boolean = true,
   val autoCheckUpdate: Boolean = true,
-  val backendUrl: String = "https://gastric-rasla-evamusic-01582837.koyeb.app"
+  val backendUrl: String = "https://castflix.apps.bot-hosting.cloud"
 )
 
 /**
