@@ -48,10 +48,25 @@ object AuthManager {
   val isConfigured: Boolean
     get() = auth != null && webClientId.isNotBlank()
 
+  private var appContext: Context? = null
+
+  /** Web client ID: taken from google-services.json (default_web_client_id); BuildConfig is only a fallback. */
   private val webClientId: String
-    get() = BuildConfig.GOOGLE_WEB_CLIENT_ID.takeUnless { it.startsWith("YOUR_") } ?: ""
+    get() {
+      val ctx = appContext
+      if (ctx != null) {
+        val id = ctx.resources.getIdentifier("default_web_client_id", "string", ctx.packageName)
+        if (id != 0) {
+          val v = ctx.getString(id)
+          if (v.endsWith(".apps.googleusercontent.com") && !v.contains("...")) return v
+        }
+      }
+      val b = BuildConfig.GOOGLE_WEB_CLIENT_ID
+      return if (b.startsWith("YOUR_") || b.contains("...")) "" else b
+    }
 
   fun init(context: Context) {
+    appContext = context.applicationContext
     if (auth != null) return
     try {
       if (FirebaseApp.getApps(context).isEmpty() && FirebaseApp.initializeApp(context) == null) {
