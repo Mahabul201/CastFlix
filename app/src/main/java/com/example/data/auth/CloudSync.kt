@@ -31,6 +31,9 @@ import kotlin.coroutines.resumeWithException
 object CloudSync {
   private const val TAG = "CloudSync"
   private var started = false
+
+  /** Human-readable sync state, shown in Settings under the account email. */
+  val status = kotlinx.coroutines.flow.MutableStateFlow("")
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
   fun start(repo: StreamRepository) {
@@ -38,13 +41,15 @@ object CloudSync {
     started = true
     scope.launch {
       AuthManager.user.map { it?.uid }.distinctUntilChanged().collectLatest { uid ->
-        if (uid == null) return@collectLatest
+        if (uid == null) { status.value = ""; return@collectLatest }
+        status.value = "Connecting…"
         try {
           syncForUser(repo, uid)
         } catch (t: kotlinx.coroutines.CancellationException) {
           throw t
         } catch (t: Throwable) {
-          Log.w(TAG, "Sync stopped: ${t.message}")
+          Log.w(TAG, "Sync stopped", t)
+          status.value = "Backup error: ${t.message ?: t.javaClass.simpleName}"
         }
       }
     }
@@ -153,6 +158,7 @@ object CloudSync {
     val cloudDocs = col.get().awaitTask().documents
     cloudDocs.mapNotNull { fromDoc(it) }.forEach { insert(it) }
     val known = cloudDocs.map { it.id }.toMutableSet()
+    status.value = "Cloud backup on ✓"
 
     local.collect { items ->
       val byDoc = items.associateBy { docId(idOf(it)) }
