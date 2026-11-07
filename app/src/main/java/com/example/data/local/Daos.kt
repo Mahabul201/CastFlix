@@ -82,6 +82,12 @@ interface DownloadDao {
   @Query("UPDATE downloads SET status = :status, progressPercent = :percent, downloadedBytes = :downloaded WHERE id = :id")
   suspend fun updateProgress(id: String, status: String, percent: Int, downloaded: Long)
 
+  @Query("UPDATE downloads SET localFilePath = :path WHERE id = :id")
+  suspend fun updateLocalPath(id: String, path: String)
+
+  @Query("SELECT * FROM downloads WHERE status IN ('DOWNLOADING', 'PENDING')")
+  suspend fun getUnfinished(): List<DownloadItemEntity>
+
   @Query("UPDATE downloads SET totalBytes = :total WHERE id = :id")
   suspend fun updateTotal(id: String, total: Long)
 }
