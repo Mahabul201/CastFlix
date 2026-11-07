@@ -44,6 +44,29 @@ object AuthManager {
 
   private var auth: FirebaseAuth? = null
 
+  /** Last sign-in failure incl. debug facts (shown in Settings so it can be screenshotted). */
+  val lastError = MutableStateFlow("")
+
+  @Suppress("DEPRECATION")
+  private fun debugInfo(context: Context): String {
+    val sha = try {
+      val pm = context.packageManager
+      val sig = if (android.os.Build.VERSION.SDK_INT >= 28) {
+        pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+          .signingInfo?.apkContentsSigners?.firstOrNull()
+      } else {
+        pm.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+          .signatures?.firstOrNull()
+      }
+      sig?.let {
+        java.security.MessageDigest.getInstance("SHA-1").digest(it.toByteArray())
+          .joinToString(":") { b -> "%02X".format(b) }
+      } ?: "?"
+    } catch (e: Exception) { "?" }
+    val project = try { FirebaseApp.getInstance().options.projectId } catch (e: Exception) { "?" }
+    return "App key SHA-1: $sha\nWeb client ID: ${webClientId.ifBlank { "NONE" }}\nFirebase project: $project"
+  }
+
   /** True only when google-services.json is present AND the web client ID is set. */
   val isConfigured: Boolean
     get() = auth != null && webClientId.isNotBlank()
@@ -83,8 +106,10 @@ object AuthManager {
   }
 
   suspend fun signInWithGoogle(context: Context): SignInResult {
+    lastError.value = ""
     val fa = auth
     if (fa == null || webClientId.isBlank()) {
+      lastError.value = "Not configured\n" + debugInfo(context)
       return SignInResult.Error("Google Sign-In is not configured yet (google-services.json / web client ID).")
     }
     val activity = context.findActivity()
@@ -117,6 +142,7 @@ object AuthManager {
       SignInResult.Cancelled
     } catch (e: Exception) {
       Log.w(TAG, "Sign-in failed", e)
+      lastError.value = (e.message ?: "Sign-in failed") + "\n" + debugInfo(context)
       SignInResult.Error(e.message ?: "Sign-in failed.")
     }
   }
