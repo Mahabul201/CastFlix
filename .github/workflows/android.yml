@@ -109,16 +109,19 @@ jobs:
             echo "ADMIN_PASSWORD secret not set - skipping update popup publish."
             exit 0
           fi
-          BASE="${BACKEND_URL:-https://gastric-rasla-evamusic-01582837.koyeb.app}"
-          TOKEN=$(curl -sS -X POST "$BASE/api/auth/login" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n --arg p "$ADMIN_PASSWORD" '{password:$p}')" | jq -r .token)
+          # Old app versions talk to Koyeb, new ones to bot-hosting. Publish the update popup to both.
           APK="https://github.com/${{ github.repository }}/releases/latest/download/CastFlix.apk"
-          curl -sS -X POST "$BASE/api/update" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n --arg vc "${{ github.run_number }}" --arg url "$APK" \
-                  '{versionCode:$vc, versionName:("1.1."+$vc), apkUrl:$url, changelog:"A new version of CastFlix is ready. Update now for the latest features and fixes.", force:false}')"
+          for BASE in "https://gastric-rasla-evamusic-01582837.koyeb.app" "${BACKEND_URL:-https://castflix.apps.bot-hosting.cloud}"; do
+            echo "Publishing update to $BASE"
+            TOKEN=$(curl -sS -X POST "$BASE/api/auth/login" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg p "$ADMIN_PASSWORD" '{password:$p}')" | jq -r .token)
+            curl -sS -X POST "$BASE/api/update" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg vc "${{ github.run_number }}" --arg url "$APK" \
+                    '{versionCode:$vc, versionName:("1.1."+$vc), apkUrl:$url, changelog:"A new version of CastFlix is ready. Update now for the latest features and fixes.", force:false}')" || true
+          done
 
       # Optional: GitHub artifact storage can be full, so never fail the build on this.
       - name: Upload artifact (optional)
@@ -129,3 +132,4 @@ jobs:
           path: dist/CastFlix.apk
           retention-days: 1
           if-no-files-found: error
+          
