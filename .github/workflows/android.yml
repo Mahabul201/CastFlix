@@ -111,7 +111,7 @@ jobs:
           fi
           # Old app versions talk to Koyeb, new ones to bot-hosting. Publish the update popup to both.
           APK="https://github.com/${{ github.repository }}/releases/latest/download/CastFlix.apk"
-          for BASE in "https://gastric-rasla-evamusic-01582837.koyeb.app" "${BACKEND_URL:-https://castflix.apps.bot-hosting.cloud}"; do
+          for BASE in "https://gastric-rasla-evamusic-01582837.koyeb.app" "${BACKEND_URL:-https://castflix201.apps.bot-hosting.cloud}"; do
             echo "Publishing update to $BASE"
             TOKEN=$(curl -sS -X POST "$BASE/api/auth/login" \
               -H "Content-Type: application/json" \
