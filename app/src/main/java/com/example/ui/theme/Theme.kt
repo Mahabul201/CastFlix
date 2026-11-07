@@ -8,8 +8,8 @@ import androidx.compose.ui.graphics.Color
 
 @Composable
 fun URLStreamTheme(
-  themeMode: AppThemeMode = AppThemeMode.DARK,
-  accent: AppAccent = AppAccent.CINEMA_RED,
+  themeMode: AppThemeMode = AppThemeMode.AMOLED,
+  accent: AppAccent = AppAccent.ELECTRIC_BLUE,
   content: @Composable () -> Unit,
 ) {
   val primaryColor = accent.color
