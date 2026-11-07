@@ -26,7 +26,7 @@ object AdConfig {
    * created for, so put the SAME address you added in the Monetag dashboard (Websites list),
    * for example "https://your-app.koyeb.app/".
    */
-  const val AD_SITE_URL = "https://castflix.apps.bot-hosting.cloud/"
+  const val AD_SITE_URL = "https://castflix201.apps.bot-hosting.cloud/"
 
   /** In-Page Push tag, shown as a strip on the Home screen under "Recently Played". 0L = off. */
   const val INPAGE_ZONE_ID = 12203169L
