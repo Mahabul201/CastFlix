@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 // Default Cinema Dark Palette
 val CinemaRed = Color(0xFFE50914)
+val ElectricBlue = Color(0xFF2979FF)
 val NeonCyan = Color(0xFF00E5FF)
 val ElectricGold = Color(0xFFFFB800)
 val EmeraldGreen = Color(0xFF00E676)
@@ -30,6 +31,7 @@ val OnSurfaceLightVariant = Color(0xFF64748B)
 
 // Accent Colors for User Customization
 enum class AppAccent(val displayName: String, val color: Color, val hex: String) {
+  ELECTRIC_BLUE("Electric Blue", ElectricBlue, "#2979FF"),
   CINEMA_RED("Cinema Red", CinemaRed, "#E50914"),
   NEON_CYAN("Neon Cyan", NeonCyan, "#00E5FF"),
   ELECTRIC_GOLD("Electric Gold", ElectricGold, "#FFB800"),
