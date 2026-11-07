@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "899795158064",
+    "project_id": "castflix-dad48",
+    "storage_bucket": "castflix-dad48.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899795158064:android:6c46f6d847313f7ed499f5",
+        "android_client_info": {
+          "package_name": "com.example"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3qUi7PDzk6Y_88fMJ0HMMJumFHNNx-uw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
