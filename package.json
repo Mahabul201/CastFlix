@@ -1,3 +1,20 @@
-node_modules
-.env
-npm-debug.log
+{
+  "name": "url-stream-backend",
+  "version": "1.0.0",
+  "description": "Node.js + Express + MongoDB backend and admin panel for URL Stream OTT Android app, deployable on Koyeb.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "mongoose": "^8.3.1",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.4.5"
+  },
+  "keywords": ["ott", "streaming", "koyeb", "mongodb", "express"],
+  "author": "URL Stream",
+  "license": "MIT"
+}
