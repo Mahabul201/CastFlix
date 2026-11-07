@@ -277,14 +277,44 @@ private fun UniverseDetail(
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(top = 2.dp)
           )
-          if (universe.description.isNotBlank()) {
+        }
+      }
+    }
+
+    // Story of the universe (written in the admin panel)
+    if (universe.description.isNotBlank()) {
+      item(span = { GridItemSpan(maxLineSpan) }) {
+        var expanded by rememberSaveable(universe.id) { mutableStateOf(false) }
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            .clickable { expanded = !expanded }
+            .padding(14.dp)
+        ) {
+          Text(
+            text = "Story",
+            color = MaterialTheme.colorScheme.onBackground,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+          )
+          Spacer(Modifier.height(6.dp))
+          Text(
+            text = universe.description,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp,
+            lineHeight = 19.sp,
+            maxLines = if (expanded) Int.MAX_VALUE else 4,
+            overflow = TextOverflow.Ellipsis
+          )
+          if (universe.description.length > 160) {
             Text(
-              text = universe.description,
-              color = Color(0xFFCBD5E1),
+              text = if (expanded) "Show less" else "Read more",
+              color = MaterialTheme.colorScheme.primary,
               fontSize = 12.sp,
-              maxLines = 2,
-              overflow = TextOverflow.Ellipsis,
-              modifier = Modifier.padding(top = 4.dp)
+              fontWeight = FontWeight.SemiBold,
+              modifier = Modifier.padding(top = 6.dp)
             )
           }
         }
