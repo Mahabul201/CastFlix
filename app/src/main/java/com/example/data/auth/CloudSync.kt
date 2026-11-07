@@ -42,14 +42,21 @@ object CloudSync {
     scope.launch {
       AuthManager.user.map { it?.uid }.distinctUntilChanged().collectLatest { uid ->
         if (uid == null) { status.value = ""; return@collectLatest }
-        status.value = "Connecting…"
-        try {
-          syncForUser(repo, uid)
-        } catch (t: kotlinx.coroutines.CancellationException) {
-          throw t
-        } catch (t: Throwable) {
-          Log.w(TAG, "Sync stopped", t)
-          status.value = "Backup error: ${t.message ?: t.javaClass.simpleName}"
+        var attempt = 0
+        while (true) {
+          status.value = if (attempt == 0) "Connecting…" else "Retrying… (#$attempt)"
+          try {
+            syncForUser(repo, uid)
+            break
+          } catch (t: kotlinx.coroutines.CancellationException) {
+            throw t
+          } catch (t: Throwable) {
+            Log.w(TAG, "Sync failed", t)
+            status.value = "Backup error: ${t.message ?: t.javaClass.simpleName}"
+            attempt++
+            // Network may not be ready yet right after launch: keep trying with a growing pause
+            kotlinx.coroutines.delay(minOf(30_000L, 4_000L * attempt))
+          }
         }
       }
     }
