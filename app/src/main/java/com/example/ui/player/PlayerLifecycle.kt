@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 
 private tailrec fun Context.findLifecycleOwner(): LifecycleOwner? = when (this) {
@@ -38,5 +39,18 @@ fun PauseWhenAppStops(player: ExoPlayer) {
     }
     owner?.lifecycle?.addObserver(observer)
     onDispose { owner?.lifecycle?.removeObserver(observer) }
+  }
+}
+
+/**
+ * Play/pause button logic. Uses playWhenReady (what the user asked for), not isPlaying, so a tap
+ * on Pause while the video is still buffering really pauses it instead of being ignored.
+ */
+fun togglePlayPause(p: Player) {
+  if (p.playWhenReady && p.playbackState != Player.STATE_ENDED) {
+    p.pause()
+  } else {
+    if (p.playbackState == Player.STATE_ENDED) p.seekTo(0L)
+    p.play()
   }
 }
