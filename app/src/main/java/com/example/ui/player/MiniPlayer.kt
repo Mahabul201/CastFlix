@@ -85,6 +85,8 @@ fun InAppMiniPlayer(
   val media = MiniPlayerState.media
   if (player == null || media == null) return
   val episode = MiniPlayerState.episode
+  // Sound fix: never keep playing audio after the app is left
+  PauseWhenAppStops(player)
 
   var offset by remember(player) { mutableStateOf(Offset.Zero) }
   var isPlaying by remember(player) { mutableStateOf(player.isPlaying) }
