@@ -165,7 +165,7 @@ fun InAppMiniPlayer(
       Box(
         modifier = Modifier
           .fillMaxSize()
-          .clickable { if (player.isPlaying) player.pause() else player.play() }
+          .clickable { togglePlayPause(player) }
       )
       Row(
         modifier = Modifier
